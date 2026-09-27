@@ -11,7 +11,6 @@
 #include <limits>
 #include <memory>
 
-#include <android/asset_manager.h>
 #include <GLES3/gl3.h>
 
 #include "Action.h"
@@ -1200,7 +1199,7 @@ void createContent(Renderer& r, game::GameState& gs) {
     d().hPlaneMesh = hPlane;
 
     {
-        AAssetManager* amgr = r.assetManager();
+        const Platform& amgr = r.platform();
 
         std::string litVS = shader::loadSource(amgr, "shaders/lit.vert");
         std::string litFS = shader::loadSource(amgr, "shaders/lit.frag");
@@ -1260,7 +1259,7 @@ void createContent(Renderer& r, game::GameState& gs) {
         d().skinnedHitReaction.tracks.push_back({1, {
             {0.0f,  math::Vec3(0.0f), math::Quat::identity(), math::Vec3(1.0f)}}});
 
-        auto tex = TextureAsset::loadAsset(r.assetManager(), "android_robot.png");
+        auto tex = TextureAsset::loadAsset(r.platform(), "android_robot.png");
         assert(tex);
         d().robotTex = tex;
         const asset::Handle hTexMat = d().assets->addMaterial("tex", {d().assets->shader(hLit), d().robotTex.get()});
@@ -1293,12 +1292,12 @@ void createContent(Renderer& r, game::GameState& gs) {
 
     level::Level lvl;
     {
-        AAsset* asset = AAssetManager_open(r.assetManager(), "level_01.lvl", AASSET_MODE_BUFFER);
+        std::vector<uint8_t> assetBytes;
+        const bool asset = r.platform().readAsset("level_01.lvl", assetBytes);
         if (!asset) { aout << "[level] failed to open level_01.lvl" << std::endl; return; }
-        const uint8_t* bytes = static_cast<const uint8_t*>(AAsset_getBuffer(asset));
-        size_t size = static_cast<size_t>(AAsset_getLength(asset));
+        const uint8_t* bytes = assetBytes.data();
+        size_t size = assetBytes.size();
         bool ok = level::load(bytes, size, lvl);
-        AAsset_close(asset);
         if (!ok) { aout << "[level] failed to parse level_01.lvl" << std::endl; return; }
         aout << "[level] loaded " << lvl.width << "x" << lvl.height
              << " cells=" << lvl.terrain.size()
@@ -1354,10 +1353,11 @@ void createContent(Renderer& r, game::GameState& gs) {
 
     // Load robot1.glb
     {
-        AAsset* asset = AAssetManager_open(r.assetManager(), "robot1.glb", AASSET_MODE_BUFFER);
+        std::vector<uint8_t> assetBytes;
+        const bool asset = r.platform().readAsset("robot1.glb", assetBytes);
         if (asset) {
-            const uint8_t* bytes = static_cast<const uint8_t*>(AAsset_getBuffer(asset));
-            size_t size = static_cast<size_t>(AAsset_getLength(asset));
+            const uint8_t* bytes = assetBytes.data();
+            size_t size = assetBytes.size();
             gltf::LoadResult glb;
             if (gltf::load(bytes, size, glb)) {
                 size_t vcnt = glb.mesh.positions.size();
@@ -1370,7 +1370,6 @@ void createContent(Renderer& r, game::GameState& gs) {
             } else {
                 aout << "[glb] failed to load robot1.glb" << std::endl;
             }
-            AAsset_close(asset);
         } else {
             aout << "[glb] robot1.glb not found in assets" << std::endl;
         }
@@ -1378,10 +1377,11 @@ void createContent(Renderer& r, game::GameState& gs) {
 
     // Load giant.glb
     {
-        AAsset* asset = AAssetManager_open(r.assetManager(), "giant.glb", AASSET_MODE_BUFFER);
+        std::vector<uint8_t> assetBytes;
+        const bool asset = r.platform().readAsset("giant.glb", assetBytes);
         if (asset) {
-            const uint8_t* bytes = static_cast<const uint8_t*>(AAsset_getBuffer(asset));
-            size_t size = static_cast<size_t>(AAsset_getLength(asset));
+            const uint8_t* bytes = assetBytes.data();
+            size_t size = assetBytes.size();
             gltf::LoadResult glb;
             if (gltf::load(bytes, size, glb)) {
                 size_t vcnt = glb.mesh.positions.size();
@@ -1394,7 +1394,6 @@ void createContent(Renderer& r, game::GameState& gs) {
             } else {
                 aout << "[glb] failed to load giant.glb" << std::endl;
             }
-            AAsset_close(asset);
         } else {
             aout << "[glb] giant.glb not found in assets" << std::endl;
         }
@@ -1402,10 +1401,11 @@ void createContent(Renderer& r, game::GameState& gs) {
 
     // Load unit_v2.glb — A2: real rigged mesh, 3-bone skeleton, idle+attack clips
     {
-        AAsset* asset = AAssetManager_open(r.assetManager(), "unit_v2.glb", AASSET_MODE_BUFFER);
+        std::vector<uint8_t> assetBytes;
+        const bool asset = r.platform().readAsset("unit_v2.glb", assetBytes);
         if (asset) {
-            const uint8_t* bytes = static_cast<const uint8_t*>(AAsset_getBuffer(asset));
-            size_t size = static_cast<size_t>(AAsset_getLength(asset));
+            const uint8_t* bytes = assetBytes.data();
+            size_t size = assetBytes.size();
             gltf::LoadResult glb;
             if (gltf::load(bytes, size, glb)) {
                 d().skinnedSkeleton = std::move(glb.skeleton);
@@ -1417,7 +1417,6 @@ void createContent(Renderer& r, game::GameState& gs) {
             } else {
                 aout << "[glb] failed to load unit_v2.glb" << std::endl;
             }
-            AAsset_close(asset);
         } else {
             aout << "[glb] unit_v2.glb not found in assets" << std::endl;
         }
@@ -1567,7 +1566,7 @@ void createContent(Renderer& r, game::GameState& gs) {
     d().turnManager = std::make_unique<turn::Manager>();
     d().turnManager->setUnits(charactersAll());
 
-    d().savePath = std::string(r.internalDataPath()) + "/battle.sav";
+    d().savePath = r.dataPath() + "/battle.sav";
     if (save::fileExists(d().savePath.c_str())) loadGame(r);
 
     d().actionManager = std::make_unique<action::Manager>();
@@ -1619,15 +1618,15 @@ void BattleScene::enter(Renderer& r) {
     d().climate = game::ClimateState{};
     d().climate.clock = &d().clock;
     {
-        AAsset* asset = AAssetManager_open(r.assetManager(), "stars.bin", AASSET_MODE_BUFFER);
+        std::vector<uint8_t> assetBytes;
+        const bool asset = r.platform().readAsset("stars.bin", assetBytes);
         if (asset) {
-            const uint8_t* bytes = static_cast<const uint8_t*>(AAsset_getBuffer(asset));
-            const size_t   size  = static_cast<size_t>(AAsset_getLength(asset));
+            const uint8_t* bytes = assetBytes.data();
+            const size_t   size  = assetBytes.size();
             if (engine::stars::loadStars(bytes, size, d().stars))
                 aout << "[stars] loaded " << d().stars.stars.size() << " stars" << std::endl;
             else
                 aout << "[stars] failed to parse stars.bin" << std::endl;
-            AAsset_close(asset);
         } else {
             aout << "[stars] stars.bin not in assets" << std::endl;
         }

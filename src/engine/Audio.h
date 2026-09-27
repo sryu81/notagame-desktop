@@ -8,12 +8,7 @@
 #include <mutex>
 #include <vector>
 
-struct AAssetManager;
-
-namespace oboe {
-class AudioStream;
-class AudioStreamDataCallback;
-} // namespace oboe
+class Platform;
 
 namespace audio {
 
@@ -64,7 +59,7 @@ public:
     Audio(const Audio &) = delete;
     Audio &operator=(const Audio &) = delete;
 
-    bool init(AAssetManager *assetManager);
+    bool init(const Platform *platform);
     void shutdown();
 
     bool loadSound(const char *assetPath, audio::Sound &out);

@@ -45,34 +45,37 @@ void SceneManager::flush(Renderer& r) {
 }
 
 void SceneManager::selfTest() {
+    struct Counts { int enters = 0, exits = 0, updates = 0, renders = 0; };
     struct CountScene : Scene {
-        int enters = 0, exits = 0, updates = 0, renders = 0;
-        void enter(Renderer&)  override { ++enters; }
-        void exit(Renderer&)   override { ++exits; }
-        void update(float, Renderer&) override { ++updates; }
-        void render(Renderer&) override { ++renders; }
+        Counts& c;
+        explicit CountScene(Counts& counts) : c(counts) {}
+        void enter(Renderer&)  override { ++c.enters; }
+        void exit(Renderer&)   override { ++c.exits; }
+        void update(float, Renderer&) override { ++c.updates; }
+        void render(Renderer&) override { ++c.renders; }
     };
 
     SceneManager mgr;
     assert(mgr.current() == nullptr);
 
-    auto* a = new CountScene();
-    auto* b = new CountScene();
+    Counts ca, cb;
+    auto* a = new CountScene(ca);
+    auto* b = new CountScene(cb);
 
     mgr.start(std::unique_ptr<Scene>(a), *static_cast<Renderer*>(nullptr));
     assert(mgr.current() == a);
-    assert(a->enters == 1 && a->exits == 0);
+    assert(ca.enters == 1 && ca.exits == 0);
 
     mgr.update(0.1f, *static_cast<Renderer*>(nullptr));
     mgr.render(*static_cast<Renderer*>(nullptr));
-    assert(a->updates == 1 && a->renders == 1);
+    assert(ca.updates == 1 && ca.renders == 1);
 
     mgr.replace(std::unique_ptr<Scene>(b));
     assert(mgr.current() == a);
 
     mgr.flush(*static_cast<Renderer*>(nullptr));
     assert(mgr.current() == b);
-    assert(a->exits == 1 && b->enters == 1);
+    assert(ca.exits == 1 && cb.enters == 1);
 
     aout << "[scene] self-test PASS" << std::endl;
 }

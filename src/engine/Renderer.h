@@ -1,12 +1,13 @@
 #ifndef NOT_A_GAME_RENDERER_H
 #define NOT_A_GAME_RENDERER_H
 
-#include <EGL/egl.h>
+#include <GLES3/gl3.h>
 #include <chrono>
 #include <memory>
 
 #include "Audio.h"
 #include "Camera.h"
+#include "Platform.h"
 #include "Math.h"
 #include "ParticleSystem.h"
 #include "Picking.h"
@@ -15,17 +16,18 @@
 #include "Sky.h"
 #include "Stars.h"
 
-struct android_app;
-struct AAssetManager;
 class SceneNode;
 namespace ui { class UIRoot; }
 
 class Renderer {
 public:
-    Renderer(android_app* pApp, SceneFactory initialSceneFactory);
+    Renderer(Platform& platform, SceneFactory initialSceneFactory);
     virtual ~Renderer();
 
-    void handleInput();
+    void pointerDown(int32_t id, float x, float y);
+    void pointerMove(int32_t id, float x, float y);
+    void pointerUp(int32_t id, float x, float y);
+    void scroll(float delta);
     void render();
 
     Camera& camera() { return *camera_; }
@@ -87,19 +89,16 @@ public:
     void setFrameLight(const math::Vec3& dir, float ambient);
     void finish();
 
-    AAssetManager* assetManager() const;
-    const char*    internalDataPath() const;
+    const Platform& platform() const { return platform_; }
+    std::string     dataPath() const { return platform_.dataPath(); }
 
 private:
     void initRenderer();
     void updateRenderArea();
 
-    android_app* app_;
-    EGLDisplay display_;
-    EGLSurface surface_;
-    EGLContext context_;
-    EGLint width_;
-    EGLint height_;
+    Platform& platform_;
+    int width_;
+    int height_;
 
     std::unique_ptr<Camera> camera_;
     std::unique_ptr<Audio> audio_;
@@ -118,11 +117,6 @@ private:
     std::unique_ptr<SceneManager> sceneManager_;
     SceneFactory initialSceneFactory_;
     std::chrono::steady_clock::time_point lastFrameTime_;
-
-    struct PinchState {
-        bool  active   = false;
-        float lastDist = 0.0f;
-    } pinch_;
 
     struct PanState {
         bool  active    = false;

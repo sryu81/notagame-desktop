@@ -1,6 +1,7 @@
 #include "Shader.h"
 
-#include <android/asset_manager.h>
+#include "Platform.h"
+#include <vector>
 #include <cstring>
 
 #include "AndroidOut.h"
@@ -152,17 +153,13 @@ void Shader::setFloat3(const char *name, float x, float y, float z) const {
 
 namespace shader {
 
-std::string loadSource(AAssetManager* mgr, const char* path) {
-    AAsset* asset = AAssetManager_open(mgr, path, AASSET_MODE_BUFFER);
-    if (!asset) {
+std::string loadSource(const Platform& platform, const char* path) {
+    std::vector<uint8_t> bytes;
+    if (!platform.readAsset(path, bytes)) {
         aout << "[shader] failed to open " << path << std::endl;
         return {};
     }
-    const size_t size = static_cast<size_t>(AAsset_getLength(asset));
-    std::string source(size, '\0');
-    std::memcpy(&source[0], AAsset_getBuffer(asset), size);
-    AAsset_close(asset);
-    return source;
+    return std::string(bytes.begin(), bytes.end());
 }
 
 } // namespace shader

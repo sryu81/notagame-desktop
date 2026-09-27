@@ -2,7 +2,6 @@
 
 #include <cassert>
 #include <GLES3/gl3.h>
-#include <game-activity/native_app_glue/android_native_app_glue.h>
 #include <memory>
 
 #include "AndroidOut.h"
@@ -18,7 +17,9 @@
 #include "UIRoot.h"
 #include "Utility.h"
 
-#include <android/asset_manager.h>
+#include <algorithm>
+#include <cmath>
+#include <iterator>
 #include <sstream>
 
 #define PRINT_GL_STRING(s) {aout << #s": "<< glGetString(s) << std::endl;}
@@ -41,19 +42,16 @@ static_assert(sizeof(FrameUBO) == 80, "FrameUBO layout mismatch");
 
 
 
-Renderer::Renderer(android_app* pApp, SceneFactory initialSceneFactory)
-        : app_(pApp),
-          display_(EGL_NO_DISPLAY),
-          surface_(EGL_NO_SURFACE),
-          context_(EGL_NO_CONTEXT),
+Renderer::Renderer(Platform& platform, SceneFactory initialSceneFactory)
+        : platform_(platform),
           width_(0),
           height_(0),
           initialSceneFactory_(std::move(initialSceneFactory)),
           camera_(std::make_unique<Camera>()) {
     initRenderer();
-    if (app_ && app_->activity && app_->activity->assetManager) {
+    {
         audio_ = std::make_unique<Audio>();
-        if (audio_->init(app_->activity->assetManager)) {
+        if (audio_->init(&platform_)) {
             clickSfx_ = std::make_unique<audio::Sound>();
             if (audio_->loadSound("click.wav", *clickSfx_))
                 aout << "[audio] loaded click.wav ("
@@ -76,8 +74,7 @@ Renderer::Renderer(android_app* pApp, SceneFactory initialSceneFactory)
 }
 
 Renderer::~Renderer() {
-    if (display_ != EGL_NO_DISPLAY) {
-        eglMakeCurrent(display_, surface_, surface_, context_);
+    {
         if (sceneManager_ && sceneManager_->current())
             sceneManager_->current()->exit(*this);
         sceneManager_.reset();
@@ -90,17 +87,6 @@ Renderer::~Renderer() {
         if (shadowFbo_) { glDeleteFramebuffers(1, &shadowFbo_); shadowFbo_ = 0; }
         camera_.reset();
         if (audio_) { audio_->stopMusic(); audio_->shutdown(); audio_.reset(); }
-        eglMakeCurrent(display_, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
-        if (context_ != EGL_NO_CONTEXT) {
-            eglDestroyContext(display_, context_);
-            context_ = EGL_NO_CONTEXT;
-        }
-        if (surface_ != EGL_NO_SURFACE) {
-            eglDestroySurface(display_, surface_);
-            surface_ = EGL_NO_SURFACE;
-        }
-        eglTerminate(display_);
-        display_ = EGL_NO_DISPLAY;
     }
 }
 
@@ -149,8 +135,7 @@ void Renderer::render() {
 
     if (sceneManager_) sceneManager_->render(*this);
 
-    auto swapResult = eglSwapBuffers(display_, surface_);
-    assert(swapResult == EGL_TRUE);
+    platform_.swapBuffers();
 }
 
 void Renderer::renderSceneGraph(const SceneNode* root) {
@@ -318,51 +303,6 @@ void Renderer::renderNode(const SceneNode* node) {
 }
 
 void Renderer::initRenderer() {
-    constexpr EGLint attribs[] = {
-        EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT,
-        EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
-        EGL_BLUE_SIZE, 8, EGL_GREEN_SIZE, 8, EGL_RED_SIZE, 8,
-        EGL_DEPTH_SIZE, 24, EGL_NONE};
-
-    auto display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
-    eglInitialize(display, nullptr, nullptr);
-
-    EGLint numConfigs;
-    eglChooseConfig(display, attribs, nullptr, 0, &numConfigs);
-    std::unique_ptr<EGLConfig[]> supportedConfigs(new EGLConfig[numConfigs]);
-    eglChooseConfig(display, attribs, supportedConfigs.get(), numConfigs, &numConfigs);
-
-    auto config = *std::find_if(
-        supportedConfigs.get(), supportedConfigs.get() + numConfigs,
-        [&display](const EGLConfig& cfg) {
-            EGLint red, green, blue, depth;
-            if (eglGetConfigAttrib(display, cfg, EGL_RED_SIZE, &red)
-                && eglGetConfigAttrib(display, cfg, EGL_GREEN_SIZE, &green)
-                && eglGetConfigAttrib(display, cfg, EGL_BLUE_SIZE, &blue)
-                && eglGetConfigAttrib(display, cfg, EGL_DEPTH_SIZE, &depth)) {
-                aout << "Found config with " << red << ", " << green << ", "
-                     << blue << ", " << depth << std::endl;
-                return red == 8 && green == 8 && blue == 8 && depth == 24;
-            }
-            return false;
-        });
-
-    aout << "Found " << numConfigs << " configs" << std::endl;
-    aout << "Chose " << config << std::endl;
-
-    EGLint format;
-    eglGetConfigAttrib(display, config, EGL_NATIVE_VISUAL_ID, &format);
-    EGLSurface surface = eglCreateWindowSurface(display, config, app_->window, nullptr);
-
-    EGLint contextAttribs[] = {EGL_CONTEXT_CLIENT_VERSION, 3, EGL_NONE};
-    EGLContext context = eglCreateContext(display, config, nullptr, contextAttribs);
-
-    auto madeCurrent = eglMakeCurrent(display, surface, surface, context);
-    assert(madeCurrent);
-
-    display_ = display;
-    surface_ = surface;
-    context_ = context;
     width_ = -1;
     height_ = -1;
 
@@ -382,8 +322,8 @@ void Renderer::initRenderer() {
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
     {
-        std::string vs = shader::loadSource(app_->activity->assetManager, "shaders/particle.vert");
-        std::string fs = shader::loadSource(app_->activity->assetManager, "shaders/particle.frag");
+        std::string vs = shader::loadSource(platform_, "shaders/particle.vert");
+        std::string fs = shader::loadSource(platform_, "shaders/particle.frag");
         particleShader_.reset(Shader::loadShader(vs, fs, {}, false));
     }
     assert(particleShader_);
@@ -396,8 +336,8 @@ void Renderer::initRenderer() {
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     {
-        std::string vs = shader::loadSource(app_->activity->assetManager, "shaders/stars.vert");
-        std::string fs = shader::loadSource(app_->activity->assetManager, "shaders/stars.frag");
+        std::string vs = shader::loadSource(platform_, "shaders/stars.vert");
+        std::string fs = shader::loadSource(platform_, "shaders/stars.frag");
         starsShader_.reset(Shader::loadShader(vs, fs, {}, false));
     }
     assert(starsShader_);
@@ -406,8 +346,8 @@ void Renderer::initRenderer() {
     glGenVertexArrays(1, &starsVao_);
 
     {
-        std::string vs = shader::loadSource(app_->activity->assetManager, "shaders/flash.vert");
-        std::string fs = shader::loadSource(app_->activity->assetManager, "shaders/flash.frag");
+        std::string vs = shader::loadSource(platform_, "shaders/flash.vert");
+        std::string fs = shader::loadSource(platform_, "shaders/flash.frag");
         flashShader_.reset(Shader::loadShader(vs, fs, {}, false));
     }
     assert(flashShader_);
@@ -432,9 +372,8 @@ void Renderer::initRenderer() {
 }
 
 void Renderer::updateRenderArea() {
-    EGLint width, height;
-    eglQuerySurface(display_, surface_, EGL_WIDTH, &width);
-    eglQuerySurface(display_, surface_, EGL_HEIGHT, &height);
+    int width = 0, height = 0;
+    platform_.framebufferSize(width, height);
     if (width != width_ || height != height_) {
         width_ = width;
         height_ = height;
@@ -476,119 +415,49 @@ void Renderer::setFrameLight(const math::Vec3& dir, float ambient) {
     ambient_  = ambient;
 }
 
-AAssetManager* Renderer::assetManager() const {
-    return app_->activity->assetManager;
-}
-
-const char* Renderer::internalDataPath() const {
-    return app_->activity->internalDataPath;
-}
-
 void Renderer::finish() {
-    GameActivity_finish(app_->activity);
+    platform_.requestQuit();
 }
 
-void Renderer::handleInput() {
-    auto* inputBuffer = android_app_swap_input_buffers(app_);
-    if (!inputBuffer) return;
+void Renderer::pointerDown(int32_t id, float x, float y) {
+    pan_.active   = false;
+    pan_.dragging = false;
+    pan_.startX   = x;
+    pan_.startY   = y;
+    pan_.lastX    = x;
+    pan_.lastY    = y;
+    EventBus::emit<PointerDownEvent>(id, x, y);
+    playClickSfx();
+}
 
-    for (auto i = 0; i < inputBuffer->motionEventsCount; i++) {
-        auto& motionEvent = inputBuffer->motionEvents[i];
-        auto action = motionEvent.action;
-        auto sourceClass = motionEvent.source & AINPUT_SOURCE_CLASS_MASK;
-
-        if (sourceClass == AINPUT_SOURCE_CLASS_POINTER) {
-            auto pointerIndex = (action & AMOTION_EVENT_ACTION_POINTER_INDEX_MASK)
-                    >> AMOTION_EVENT_ACTION_POINTER_INDEX_SHIFT;
-            auto& pointer = motionEvent.pointers[pointerIndex];
-            float x = GameActivityPointerAxes_getX(&pointer);
-            float y = GameActivityPointerAxes_getY(&pointer);
-
-            switch (action & AMOTION_EVENT_ACTION_MASK) {
-                case AMOTION_EVENT_ACTION_DOWN:
-                case AMOTION_EVENT_ACTION_POINTER_DOWN:
-                    if (motionEvent.pointerCount >= 2) {
-                        const auto& p0 = motionEvent.pointers[0];
-                        const auto& p1 = motionEvent.pointers[1];
-                        float dx = GameActivityPointerAxes_getX(&p1) - GameActivityPointerAxes_getX(&p0);
-                        float dy = GameActivityPointerAxes_getY(&p1) - GameActivityPointerAxes_getY(&p0);
-                        pinch_.lastDist  = std::sqrt(dx * dx + dy * dy);
-                        pinch_.active    = true;
-                        pan_.active    = false;
-                        pan_.dragging  = false;
-                    } else {
-                        pan_.active   = false;
-                        pan_.dragging = false;
-                        pan_.startX   = x;
-                        pan_.startY   = y;
-                        pan_.lastX    = x;
-                        pan_.lastY    = y;
-                    }
-                    EventBus::emit<PointerDownEvent>(pointer.id, x, y);
-                    playClickSfx();
-                    break;
-                case AMOTION_EVENT_ACTION_CANCEL:
-                case AMOTION_EVENT_ACTION_UP:
-                case AMOTION_EVENT_ACTION_POINTER_UP:
-                    if (motionEvent.pointerCount <= 2) pinch_.active = false;
-                    pan_.active   = false;
-                    pan_.dragging = false;
-                    EventBus::emit<PointerUpEvent>(pointer.id, x, y);
-                    break;
-                case AMOTION_EVENT_ACTION_MOVE:
-                    if (pinch_.active && motionEvent.pointerCount >= 2) {
-                        const auto& p0 = motionEvent.pointers[0];
-                        const auto& p1 = motionEvent.pointers[1];
-                        float dx = GameActivityPointerAxes_getX(&p1) - GameActivityPointerAxes_getX(&p0);
-                        float dy = GameActivityPointerAxes_getY(&p1) - GameActivityPointerAxes_getY(&p0);
-                        const float newDist = std::sqrt(dx * dx + dy * dy);
-                        if (pinch_.lastDist > 1e-3f) camera_->zoomBy(newDist / pinch_.lastDist);
-                        pinch_.lastDist = newDist;
-                    }
-                    if (!pinch_.active && motionEvent.pointerCount == 1) {
-                        const auto& p = motionEvent.pointers[0];
-                        const float mx = GameActivityPointerAxes_getX(&p);
-                        const float my = GameActivityPointerAxes_getY(&p);
-                        if (!pan_.dragging) {
-                            const float ddx = mx - pan_.startX;
-                            const float ddy = my - pan_.startY;
-                            if (ddx * ddx + ddy * ddy > kPanThresholdPx * kPanThresholdPx) {
-                                pan_.dragging = true;
-                                pan_.active   = true;
-                                pan_.lastX    = mx;
-                                pan_.lastY    = my;
-                            }
-                        }
-                        if (pan_.active) {
-                            camera_->pan((mx - pan_.lastX) * pan_.sensitivity,
-                                         (my - pan_.lastY) * pan_.sensitivity);
-                            pan_.lastX = mx;
-                            pan_.lastY = my;
-                        }
-                    }
-                    for (auto index = 0; index < motionEvent.pointerCount; index++) {
-                        auto& p = motionEvent.pointers[index];
-                        EventBus::emit<PointerMoveEvent>(p.id,
-                            GameActivityPointerAxes_getX(&p),
-                            GameActivityPointerAxes_getY(&p));
-                    }
-                    break;
-                default:
-                    break;
-            }
+void Renderer::pointerMove(int32_t id, float x, float y) {
+    if (!pan_.dragging) {
+        const float ddx = x - pan_.startX;
+        const float ddy = y - pan_.startY;
+        if (ddx * ddx + ddy * ddy > kPanThresholdPx * kPanThresholdPx) {
+            pan_.dragging = true;
+            pan_.active   = true;
+            pan_.lastX    = x;
+            pan_.lastY    = y;
         }
     }
-    android_app_clear_motion_events(inputBuffer);
-
-    for (auto i = 0; i < inputBuffer->keyEventsCount; i++) {
-        auto& keyEvent = inputBuffer->keyEvents[i];
-        switch (keyEvent.action) {
-            case AKEY_EVENT_ACTION_DOWN: EventBus::emit<KeyDownEvent>(keyEvent.keyCode); break;
-            case AKEY_EVENT_ACTION_UP:   EventBus::emit<KeyUpEvent>(keyEvent.keyCode);   break;
-            default: break;
-        }
+    if (pan_.active) {
+        camera_->pan((x - pan_.lastX) * pan_.sensitivity,
+                     (y - pan_.lastY) * pan_.sensitivity);
+        pan_.lastX = x;
+        pan_.lastY = y;
     }
-    android_app_clear_key_events(inputBuffer);
+    EventBus::emit<PointerMoveEvent>(id, x, y);
+}
+
+void Renderer::pointerUp(int32_t id, float x, float y) {
+    pan_.active   = false;
+    pan_.dragging = false;
+    EventBus::emit<PointerUpEvent>(id, x, y);
+}
+
+void Renderer::scroll(float delta) {
+    camera_->zoomBy(std::pow(1.1f, delta));
 }
 
 void Renderer::initShadowMap() {
@@ -615,8 +484,8 @@ void Renderer::initShadowMap() {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     {
-        std::string vs = shader::loadSource(app_->activity->assetManager, "shaders/shadow.vert");
-        std::string fs = shader::loadSource(app_->activity->assetManager, "shaders/shadow.frag");
+        std::string vs = shader::loadSource(platform_, "shaders/shadow.vert");
+        std::string fs = shader::loadSource(platform_, "shaders/shadow.frag");
         shadowShader_.reset(Shader::loadShader(vs, fs, {}, false));
     }
     assert(shadowShader_);
@@ -662,10 +531,7 @@ void Renderer::shadowPass(const SceneNode* root) {
     renderNodeShadow(root);
     glDisable(GL_POLYGON_OFFSET_FILL);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    EGLint w, h;
-    eglQuerySurface(display_, surface_, EGL_WIDTH, &w);
-    eglQuerySurface(display_, surface_, EGL_HEIGHT, &h);
-    glViewport(0, 0, w, h);
+    glViewport(0, 0, width_, height_);
 }
 
 void Renderer::playClickSfx() {

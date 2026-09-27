@@ -26,6 +26,7 @@
 #include "Model.h"
 #include "ParticleSystem.h"
 #include "Picking.h"
+#include "Platform.h"
 #include "Primitives.h"
 #include "Renderer.h"
 #include "Save.h"

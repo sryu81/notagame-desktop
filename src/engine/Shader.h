@@ -4,7 +4,7 @@
 #include <string>
 #include <GLES3/gl3.h>
 
-struct AAssetManager;
+class Platform;
 
 struct ShaderBinding {
     const char *modelMatrixUniform    = "uModel";
@@ -87,7 +87,7 @@ private:
 
 namespace shader {
 
-std::string loadSource(AAssetManager* mgr, const char* path);
+std::string loadSource(const Platform& platform, const char* path);
 
 } // namespace shader
 

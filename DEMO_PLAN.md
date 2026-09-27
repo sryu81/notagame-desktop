@@ -74,7 +74,9 @@ TitleScene ──► HubScene ──┬─► RenderLab     materials, texture, 
 
 ### P0 — Hygiene and bug fixes (small, do first)
 
-Status: item 1 (B1–B8) done 2026-09-26; items 2–5 open.
+Status: done 2026-09-26. robot1.blend/.glb moved to `art/` (not shipped);
+`make_level.py` writes `assets/level_01.lvl` by default (output identical);
+`level::selfTest` runs at startup; battle enter/RESET ≈ 2–3 ms.
 
 1. Fix B1–B8, adding a selfTest where host-testable (B2, B3, B5, B6, B8).
 2. Move `robot1.blend` out of `assets/` (it shipped in the APK upstream).

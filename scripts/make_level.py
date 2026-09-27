@@ -1,5 +1,7 @@
 import math
+import os
 import struct
+import sys
 
 MAGIC   = 0x4C564C31
 VERSION = 2
@@ -65,6 +67,8 @@ if __name__ == '__main__':
          (9, 5, 3, 3, 1)),
     ]
 
-    sz = make_lvl(W, H, 1.0, cells, units, [],
-                  '/home/soo/AndroidStudioProjects/Not_A_Game/app/src/main/assets/level_01.lvl')
-    print(f"WROTE {sz}B -> level_01.lvl")
+    default_out = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                               '..', 'assets', 'level_01.lvl')
+    out_path = sys.argv[1] if len(sys.argv) > 1 else default_out
+    sz = make_lvl(W, H, 1.0, cells, units, [], out_path)
+    print(f"WROTE {sz}B -> {os.path.normpath(out_path)}")

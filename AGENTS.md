@@ -46,6 +46,7 @@ src/desktop/main.cpp   GLFW window, GLES 3.0 ctx via EGL, input → Renderer, se
 assets/                same as notagame app/src/main/assets
 third_party/           stb_image.h (v2.30), miniaudio.h (v0.11.25)
 tools/gen_font.py      generates src/engine/FontData.h
+art/                   source art, not shipped (robot1.blend, robot1.glb)
 ```
 
 Game scenes: `TitleScene` → `HubScene` (lab list + BATTLE) → `BattleScene`.
@@ -113,4 +114,4 @@ Verified: 47 selfTests PASS; title + battle render at 60 FPS on Mesa radeonsi
 (GLES 3.2); PulseAudio via miniaudio; level + 3 .glb load.
 
 Done: P0 B1–B8, P1 (hub, DebugPanel, LabChecklist, battle split, LabAssets).
-Next: P0 leftovers (items 2–5), then P2 labs starting with FxLab.
+Next: P2 labs in DEMO_PLAN §6 order, starting with FxLab.

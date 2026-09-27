@@ -175,6 +175,7 @@ int main(int argc, char** argv) {
     action::Manager::selfTest();
     save::selfTest(platform.dataPath().c_str());
     gltf::selfTest();
+    level::selfTest();
     particle::Emitter::selfTest();
     engine::stars::selfTest();
     engine::sky::selfTest();

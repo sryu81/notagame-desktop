@@ -74,6 +74,8 @@ TitleScene ──► HubScene ──┬─► RenderLab     materials, texture, 
 
 ### P0 — Hygiene and bug fixes (small, do first)
 
+Status: item 1 (B1–B8) done 2026-09-26; items 2–5 open.
+
 1. Fix B1–B8, adding a selfTest where host-testable (B2, B3, B5, B6, B8).
 2. Move `robot1.blend` out of `assets/` (it shipped in the APK upstream).
 3. Stop loading `robot1.glb` by default. Keep it as an opt-in "heavy mesh"
@@ -86,6 +88,10 @@ TitleScene ──► HubScene ──┬─► RenderLab     materials, texture, 
 no attack double-hits, and battle enter/RESET takes under 1 s.
 
 ### P1 — Scaffolding
+
+Status: done 2026-09-26. Battle HUD uses DebugPanel menus (one panel
+open at a time); robot1.glb, giant.glb and the texture material are no
+longer loaded by the battle scene.
 
 1. **`HubScene`**: a button list of labs plus the battle scene. Replaces
    "tap anywhere" in TitleScene. BACK in every scene returns to Hub.

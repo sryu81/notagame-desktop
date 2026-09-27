@@ -45,7 +45,15 @@ src/game/              game (same as notagame app/src/main/cpp/game)
 src/desktop/main.cpp   GLFW window, GLES 3.0 ctx via EGL, input → Renderer, selfTest list
 assets/                same as notagame app/src/main/assets
 third_party/           stb_image.h (v2.30), miniaudio.h (v0.11.25)
+tools/gen_font.py      generates src/engine/FontData.h
 ```
+
+Game scenes: `TitleScene` → `HubScene` (lab list + BATTLE) → `BattleScene`.
+Battle is split into `BattleData.h` (shared `battle::Data`),
+`BattleContent` (assets/level), `BattleRules` (paths, attacks, pick, save),
+`BattleInput` (taps), `BattleHUD` (DebugPanel menus), `BattleScene` (lifecycle).
+Lab helpers: `DebugPanel` (row list), `LabChecklist` (green-on-pass rows),
+`LabAssets` (lit/skinned/unlit shaders + materials, plane/cube meshes).
 
 Conventions are the Android repo's (see its AGENTS.md): no new comments,
 `math::` column-major, every module keeps its `selfTest()`, `engine/` never
@@ -82,6 +90,11 @@ Fixes made here that upstream lacks (keep this list current):
   emitter keeps emit alpha/size (frame-rate independent shrink), bones use
   glTF rest TRS (`Bone::restLocal`), default roster restores to unit max HP,
   `Shader::setBoneMatrices` clamps to `kMaxBones`.
+- Battle assets go through `game::LabAssets`, which calls `releaseGL()` on
+  exit (upstream leaked the registry VBO/IBO on every battle enter/RESET).
+- Font: punctuation glyphs (`. : % = < > / ( ) , ? * ' _`) and lowercase →
+  uppercase shapes. Regenerate with `python3 tools/gen_font.py > src/engine/FontData.h`
+  (`tools/gen_font.py` is copied from upstream and extended).
 
 Easiest merge path: in notagame, add the same `Platform` seam first, then
 `diff -r src/engine ../notagame/engine-module/src/main/cpp/engine`.
@@ -99,4 +112,5 @@ Easiest merge path: in notagame, add the same `Platform` seam first, then
 Verified: 47 selfTests PASS; title + battle render at 60 FPS on Mesa radeonsi
 (GLES 3.2); PulseAudio via miniaudio; level + 3 .glb load.
 
-Next: DEMO_PLAN P0 (B1–B8), then P1 HubScene.
+Done: P0 B1–B8, P1 (hub, DebugPanel, LabChecklist, battle split, LabAssets).
+Next: P0 leftovers (items 2–5), then P2 labs starting with FxLab.

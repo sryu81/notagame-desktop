@@ -2,7 +2,7 @@
 
 #include <GLES3/gl3.h>
 
-#include "BattleScene.h"
+#include "HubScene.h"
 #include "Engine.h"
 #include "GameState.h"
 
@@ -28,7 +28,7 @@ void TitleScene::enter(Renderer& r) {
             }
         }
         rptr->cancelPan();
-        rptr->sceneManager().replace(std::make_unique<BattleScene>(*gs));
+        rptr->sceneManager().replace(std::make_unique<HubScene>(*gs));
     }));
 }
 

@@ -17,7 +17,9 @@
 #include "Unit.h"
 #include "UnitCatalog.h"
 #include "game/EntityBuilder.h"
+#include "game/DebugPanel.h"
 #include "game/GameState.h"
+#include "game/LabChecklist.h"
 
 namespace fs = std::filesystem;
 
@@ -198,6 +200,8 @@ int main(int argc, char** argv) {
     game::EntityBuilder::selfTest();
     game::EntityRegistry::selfTest();
     game::GameState::selfTest();
+    game::DebugPanel::selfTest();
+    game::LabChecklist::selfTest();
 
     InputState inputState;
     glfwSetWindowUserPointer(window, &inputState);

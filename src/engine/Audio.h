@@ -43,6 +43,8 @@ struct State {
 void mix(State &state, float *outInterleavedStereo, int numFrames);
 
 int allocateVoice(State &state);
+int activeVoices(const State &state);
+float peakAbs(const float *samples, int count);
 
 bool loadSound(const uint8_t *bytes, size_t size, Sound &out);
 bool loadMusic(const uint8_t *bytes, size_t size, Music &out);
@@ -76,6 +78,11 @@ public:
     float masterVolume() const;
     float sfxVolume() const;
     float musicVolume() const;
+
+    bool isOpen() const;
+    int activeVoiceCount() const;
+    const audio::Music *currentMusic() const;
+    float outputPeak() const;
 
 private:
     struct Impl;

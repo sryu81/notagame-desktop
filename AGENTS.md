@@ -47,6 +47,7 @@ assets/                same as notagame app/src/main/assets
 third_party/           stb_image.h (v2.30), miniaudio.h (v0.11.25)
 tools/gen_font.py      generates src/engine/FontData.h
 tools/gen_checker.py   generates assets/checker.png (RenderLab texture check)
+tools/gen_sfx.py       generates select/move/hit/miss/turn/music2.wav (48 kHz mono)
 art/                   source art, not shipped (robot1.blend, robot1.glb)
 ```
 
@@ -57,7 +58,9 @@ Battle is split into `BattleData.h` (shared `battle::Data`),
 Labs: `FxLab` (particles/sky/weather, 12 checks), `CameraLab` (orbit/limits/
 ortho/forward/follow/pick/input, 11 checks), `RenderLab` (texture, primitives,
 skinning, shadows, depthWrite, bounds, bone clamp, 9 checks + opt-in heavy
-mesh). Each auto-drives its checklist.
+mesh), `SystemsLab` (save slots, Saveable, Bag/Equip/Catalog, custom
+calendar, SFX voices, music switch, volume buses, 10 checks). Each
+auto-drives its checklist.
 Lab helpers: `DebugPanel` (row list), `LabChecklist` (green-on-pass rows),
 `LabAssets` (lit/skinned/unlit shaders + materials, plane/cube meshes).
 
@@ -82,7 +85,7 @@ Platform-specific (do NOT copy verbatim; Android needs its own impl):
 | `Platform.h` | copy as-is; add `AndroidPlatform` (AAssetManager read, internalDataPath, EGL swap/size, `GameActivity_finish`) |
 | `Renderer(Platform&)`, `pointerDown/Move/Up`, `scroll` | Android `main.cpp` must translate motion events → these calls; pinch → `zoomBy` (pinch state was removed from Renderer) |
 | `TextureAsset` (stb_image) | either vendor stb_image on Android too, or keep AImageDecoder behind `Platform` bytes |
-| `Audio_miniaudio.cpp` | keep `Audio_oboe.cpp`, port to `Audio::init(const Platform*)` |
+| `Audio_miniaudio.cpp` | keep `Audio_oboe.cpp`, port to `Audio::init(const Platform*)`; also implement `isOpen`, `activeVoiceCount`, `currentMusic`, `outputPeak` (store `audio::peakAbs` of each mixed buffer) |
 | `AndroidOut.cpp` (stderr) | restore `__android_log_print` under `#ifdef __ANDROID__` |
 | `src/desktop/main.cpp` | stays desktop-only; sync selfTest list with Android `main.cpp` |
 
@@ -108,6 +111,7 @@ Fixes made here that upstream lacks (keep this list current):
   freed `BattleGrid*`; any pan after leaving battle was a use-after-free).
 - Renderer clears the shadow map once when a scene has no shadow root
   (lit surfaces sampled an unwritten or previous scene's map).
+- `GameState` and `EntityRegistry` derive from `engine::Saveable`.
 - Shadow ortho box centres on the camera target (was fixed at the origin);
   `setShadowExtent`, `lightViewProjection()`, `shadowStats()` added.
 - Font: punctuation glyphs (`. : % = < > / ( ) , ? * ' _`) and lowercase →

@@ -571,6 +571,10 @@ void Renderer::shadowPass(const SceneNode* root) {
     glViewport(0, 0, width_, height_);
 }
 
+void Renderer::playDefaultMusic() {
+    if (audio_ && musicLoop_) audio_->playMusic(*musicLoop_, true, 0.5f);
+}
+
 void Renderer::playClickSfx() {
     if (audio_ && clickSfx_) audio_->playSound(*clickSfx_, 1.0f);
 }

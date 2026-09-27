@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cmath>
 #include <cstring>
 
 namespace audio {
@@ -63,6 +64,19 @@ void mix(State &state, float *out, int numFrames) {
             frame += toMix;
         }
     }
+}
+
+int activeVoices(const State &state) {
+    int n = 0;
+    for (int i = 0; i < kMaxSfxVoices; i++)
+        if (state.voices[i].active && state.voices[i].sound) ++n;
+    return n;
+}
+
+float peakAbs(const float *samples, int count) {
+    float p = 0.0f;
+    for (int i = 0; i < count; i++) p = std::max(p, std::abs(samples[i]));
+    return p;
 }
 
 int allocateVoice(State &state) {
@@ -334,6 +348,26 @@ void selfTest() {
         mix(state, out2.data(), 2);
         assert(approxEqual(out2[0], 0.5f));
         assert(approxEqual(out2[1], 0.5f));
+    }
+
+    {
+        State st;
+        Sound s;
+        s.samples.assign(64, 0.5f);
+        assert(activeVoices(st) == 0);
+        for (int i = 0; i < 3; ++i) {
+            const int v = allocateVoice(st);
+            st.voices[v] = {&s, 0, 1.0f, true};
+        }
+        assert(activeVoices(st) == 3);
+        float out[32 * 2];
+        mix(st, out, 32);
+        assert(peakAbs(out, 64) > 0.4f);
+        st.masterVolume = 0.0f;
+        mix(st, out, 32);
+        assert(peakAbs(out, 64) == 0.0f);
+        const float neg[3] = {0.1f, -0.7f, 0.3f};
+        assert(peakAbs(neg, 3) == 0.7f);
     }
 
     aout << "[audio] self-test PASS" << std::endl;

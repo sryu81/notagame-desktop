@@ -1,6 +1,7 @@
 #include "HubScene.h"
 
 #include "RenderLab.h"
+#include "SystemsLab.h"
 #include <GLES3/gl3.h>
 
 #include "BattleScene.h"
@@ -23,7 +24,7 @@ std::vector<HubScene::Entry> HubScene::entries(game::GameState& gs) {
         {"ANIM LAB", nullptr},
         {"FX LAB", [g]() { return std::unique_ptr<Scene>(new FxLab(*g)); }},
         {"CAMERA LAB", [g]() { return std::unique_ptr<Scene>(new CameraLab(*g)); }},
-        {"SYSTEMS LAB", nullptr},
+        {"SYSTEMS LAB", [g]() { return std::unique_ptr<Scene>(new SystemsLab(*g)); }},
         {"BATTLE", [g]() { return std::unique_ptr<Scene>(new BattleScene(*g)); }},
     };
 }

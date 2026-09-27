@@ -13,6 +13,7 @@
 #include "miniaudio.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cstring>
 
 struct Audio::Impl {
@@ -21,11 +22,14 @@ struct Audio::Impl {
     bool deviceOpen = false;
     audio::State state;
     std::mutex mutex;
+    std::atomic<float> peak{0.0f};
 
     static void onData(ma_device *device, void *output, const void *, ma_uint32 frameCount) {
         auto *self = static_cast<Impl *>(device->pUserData);
         std::lock_guard<std::mutex> lock(self->mutex);
-        audio::mix(self->state, static_cast<float *>(output), static_cast<int>(frameCount));
+        auto *out = static_cast<float *>(output);
+        audio::mix(self->state, out, static_cast<int>(frameCount));
+        self->peak.store(audio::peakAbs(out, static_cast<int>(frameCount) * 2));
     }
 };
 
@@ -138,4 +142,22 @@ float Audio::sfxVolume() const {
 float Audio::musicVolume() const {
     std::lock_guard<std::mutex> lock(impl_->mutex);
     return impl_->state.musicVolume;
+}
+
+bool Audio::isOpen() const {
+    return impl_->deviceOpen;
+}
+
+int Audio::activeVoiceCount() const {
+    std::lock_guard<std::mutex> lock(impl_->mutex);
+    return audio::activeVoices(impl_->state);
+}
+
+const audio::Music *Audio::currentMusic() const {
+    std::lock_guard<std::mutex> lock(impl_->mutex);
+    return impl_->state.music;
+}
+
+float Audio::outputPeak() const {
+    return impl_->peak.load();
 }

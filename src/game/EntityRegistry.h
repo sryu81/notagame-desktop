@@ -9,6 +9,7 @@
 #include "Animation.h"
 #include "Object.h"
 #include "Prop.h"
+#include "Saveable.h"
 #include "Unit.h"
 
 class SceneNode;
@@ -17,7 +18,7 @@ namespace game {
 
 class Prop;
 
-class EntityRegistry {
+class EntityRegistry : public engine::Saveable {
 public:
     EntityRegistry() = default;
     ~EntityRegistry() = default;
@@ -67,8 +68,8 @@ public:
     void   clear();
 
     // Serialization
-    void save(engine::SaveWriter& w) const;
-    void load(engine::SaveReader& r);
+    void save(engine::SaveWriter& w) const override;
+    void load(engine::SaveReader& r) override;
 
     static void selfTest();
 

@@ -6,8 +6,8 @@
 #include "Bag.h"
 #include "EquipSlots.h"
 #include "Item.h"
+#include "Saveable.h"
 
-namespace engine { class SaveWriter; class SaveReader; }
 namespace game { class EntityRegistry; }
 
 namespace game {
@@ -21,7 +21,7 @@ struct UnitSnapshot {
         game::EquipSlot::Feet, game::EquipSlot::Accessory};
 };
 
-class GameState {
+class GameState : public engine::Saveable {
 public:
     void initDefaultRoster(size_t count);
 
@@ -35,8 +35,8 @@ public:
     void clear();
     bool empty() const { return roster_.empty(); }
 
-    void save(engine::SaveWriter& w) const;
-    void load(engine::SaveReader& r);
+    void save(engine::SaveWriter& w) const override;
+    void load(engine::SaveReader& r) override;
 
     static void selfTest();
 

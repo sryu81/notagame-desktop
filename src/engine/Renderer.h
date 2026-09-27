@@ -71,6 +71,8 @@ public:
     void setSfxVolume(float v)    { if (audio_) audio_->setSfxVolume(v); }
     void setMusicVolume(float v)  { if (audio_) audio_->setMusicVolume(v); }
     void playClickSfx();
+    Audio* audio() { return audio_.get(); }
+    void playDefaultMusic();
     float masterVolume() const { return audio_ ? audio_->masterVolume() : 0.0f; }
     float sfxVolume()    const { return audio_ ? audio_->sfxVolume()    : 0.0f; }
     float musicVolume()  const { return audio_ ? audio_->musicVolume()  : 0.0f; }

@@ -112,7 +112,7 @@ longer loaded by the battle scene.
 
 ### P2 — Labs
 
-Status: P2.1 FxLab, P2.2 CameraLab, P2.3 RenderLab done; P2.4–P2.5 open.
+Status: P2.1–P2.4 done; P2.5 AnimLab open.
 
 Every lab follows the same shape:
 
@@ -222,6 +222,16 @@ Engine change **R1**: `Renderer::computeLightVP` centres the ortho box on
 
 #### P2.4 SystemsLab — save, inventory, catalog, clock, audio
 
+Status: done 2026-09-26 — `src/game/SystemsLab.{h,cpp}`, 10/10 green in a
+1.4 s auto-drive under ASan. S1 and S2 landed (`tools/gen_sfx.py` →
+`select/move/hit/miss/turn/music2.wav`). Audio rows needed read-only
+`Audio` accessors: `isOpen`, `activeVoiceCount`, `currentMusic`,
+`outputPeak` (peak of the last mixed device buffer), plus
+`Renderer::audio()` / `playDefaultMusic()`. The lab saves its own
+`GameState` to `lab_slot1..3.sav` (never the player's roster or
+`battle.sav`). Added a `registry saveable` row: `EntityRegistry` written
+and read back through `engine::Saveable&`.
+
 Engine/game changes **S1**: `GameState` and `EntityRegistry` derive from
 `engine::Saveable`. **S2**: `tools/gen_sfx.py` synthesises 48 kHz mono
 `select.wav move.wav hit.wav miss.wav turn.wav` and `music2.wav`.
@@ -230,13 +240,14 @@ Engine/game changes **S1**: `GameState` and `EntityRegistry` derive from
 |---|---|
 | `save slots` | write slots 1–3 via `save::writeAll`, read back equal |
 | `slot isolation` | slot 2 edit does not change slot 1 on reload |
-| `bag` | add 3/remove 1 → `countOf` == 2 |
-| `equip` | equip Head → `get(Head)` set, second equip rejected, unequip returns item |
+| `bag` | add 3/remove 1 → `countOf` == 2; removing more than held empties the entry; unknown id → false |
+| `equip` | equip Head → `get(Head)` set, second equip rejected, slot not in the set rejected, unequip returns item |
 | `catalog` | `find`/`remove`/`all` sizes consistent |
 | `custom calendar` | `Clock(4, 10)`: day 41 → year 2 |
+| `registry saveable` | `EntityRegistry` round-trips unit HP through `save::writeAll/loadAll` as `engine::Saveable&` |
 | `sfx voices` | 5 SFX play overlapped, active voices ≥ 2 |
 | `music switch` | `playMusic(music2)` replaces `music` |
-| `volume buses` | master 0 → mixed output silent |
+| `volume buses` | master 0 → device output peak == 0; master 1 → peak > 0 |
 
 #### P2.5 AnimLab — clips, skeletal, events, IK
 

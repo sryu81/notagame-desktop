@@ -103,6 +103,8 @@ public:
     // Transfer ownership into registry (replaces releaseUnits/releaseProps)
     void populate(EntityRegistry& reg);
 
+    static void syncShadowMirror(const SceneNode* src, SceneNode* dst);
+
     static void selfTest();
 
 private:

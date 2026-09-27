@@ -12,6 +12,7 @@ namespace anim {
 struct Bone {
     int parent = -1;
     math::Mat4 invBindPose = math::Mat4::identity();
+    math::Mat4 restLocal = math::Mat4::identity();
 };
 
 struct Skeleton {

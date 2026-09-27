@@ -4,6 +4,7 @@
 #include <functional>
 #include <vector>
 
+#include "Bone.h"
 #include "Math.h"
 
 namespace anim {
@@ -41,6 +42,7 @@ struct SkeletalClip {
 };
 
 std::vector<math::Mat4> sampleSkeletal(const SkeletalClip &clip, float time, int boneCount);
+std::vector<math::Mat4> sampleSkeletal(const SkeletalClip &clip, float time, const Skeleton &skel);
 
 void selfTest();
 

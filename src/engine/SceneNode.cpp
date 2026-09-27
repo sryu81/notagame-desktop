@@ -48,8 +48,7 @@ void SceneNode::update(float dt) {
             setLocal(m);
         }
         if (hasSkeletal) {
-            auto perBoneLocal = anim::sampleSkeletal(*skeletalClip_, time_,
-                                                      static_cast<int>(skeleton_->bones.size()));
+            auto perBoneLocal = anim::sampleSkeletal(*skeletalClip_, time_, *skeleton_);
             boneMatrices_ = anim::computeBoneMatrices(*skeleton_, perBoneLocal);
         }
     }

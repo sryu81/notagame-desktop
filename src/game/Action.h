@@ -136,7 +136,7 @@ private:
     const anim::SkeletalClip* skeletalHitReaction_;
     float delay_;
     float elapsed_ = 0.0f;
-    bool hitDelivered_ = false;
+    std::shared_ptr<bool> hitDelivered_ = std::make_shared<bool>(false);
 
     HitCallback hitCb_;
 

@@ -39,7 +39,7 @@ void GameState::restoreTo(EntityRegistry& reg) {
         if (!u) continue;
         const auto& s = roster_[i];
         u->heal(u->maxHp());
-        u->takeDamage(u->maxHp() - s.hp);
+        if (s.hp < s.maxHp) u->takeDamage(u->maxHp() - s.hp);
         u->inventory() = s.inventory;
         u->equipment() = s.equipment;
     }
@@ -136,6 +136,18 @@ void GameState::selfTest() {
         assert(gs.entry(0).hp == 1);
         assert(gs.entry(1).hp == 10);
         assert(gs.entry(2).hp == 10);
+    }
+
+    {
+        GameState gs;
+        gs.initDefaultRoster(1);
+
+        SceneNode root;
+        EntityRegistry reg;
+        reg.add(std::make_unique<Unit>(&root, unit::Faction::Player,
+                                       unit::Stats{20, 6, 4, 3, 1}));
+        gs.restoreTo(reg);
+        assert(reg.unitAt(0)->hp() == 20);
     }
 
     aout << "[game-state] self-test PASS" << std::endl;

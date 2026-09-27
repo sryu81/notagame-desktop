@@ -51,6 +51,7 @@ public:
 
     const std::vector<math::Mat4> &boneMatrices() const { return boneMatrices_; }
     bool hasBoneMatrices() const { return !boneMatrices_.empty(); }
+    void setBoneMatrices(const std::vector<math::Mat4> &m) { boneMatrices_ = m; }
 
     void update(float dt);
 

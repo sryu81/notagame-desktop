@@ -226,7 +226,7 @@ AttackAction::AttackAction(game::Unit *attacker, game::Unit *target,
 
 void AttackAction::start() {
     elapsed_ = 0.0f;
-    hitDelivered_ = false;
+    *hitDelivered_ = false;
     auto* node = attacker_->node();
     if (node == nullptr) return;
 
@@ -249,10 +249,15 @@ void AttackAction::start() {
     const anim::Clip* reactionClip = hitReactionClip_;
     const anim::SkeletalClip* skelReaction = skeletalHitReaction_;
     SceneNode* rawAttacker = node;
-    node->setAnimEventCallback([rawTarget, rawDamage, reactionClip, skelReaction, rawAttacker](int id) {
-        if (id != 1 || rawTarget == nullptr || rawTarget->isDead()) return;
+    std::shared_ptr<bool> delivered = hitDelivered_;
+    HitCallback hitCb = hitCb_;
+    node->setAnimEventCallback([rawTarget, rawDamage, reactionClip, skelReaction, rawAttacker,
+                                delivered, hitCb](int id) {
+        if (id != 1 || *delivered || rawTarget == nullptr || rawTarget->isDead()) return;
+        *delivered = true;
         rawTarget->takeDamage(rawDamage);
         rawTarget->applyStatus({unit::StatusType::Poisoned, 3, 1});
+        if (hitCb) hitCb();
         auto* tnode = rawTarget->node();
         if (tnode) {
             if (skelReaction && tnode->skeleton()) {
@@ -274,7 +279,7 @@ void AttackAction::update(float dt) {
     elapsed_ += dt;
     auto* node = attacker_->node();
     if (node != nullptr) node->setTime(elapsed_);
-    if (!hitDelivered_ && hitTime_ >= 0.0f && elapsed_ >= hitTime_) {
+    if (!*hitDelivered_ && hitTime_ >= 0.0f && elapsed_ >= hitTime_) {
         aout << "[action] HIT via timer  atk_time=" << elapsed_
              << " hit_time=" << hitTime_ << std::endl;
         applyDamage();
@@ -299,15 +304,15 @@ bool AttackAction::isDone() const {
 }
 
 void AttackAction::applyDamage() {
-    if (hitDelivered_ || target_ == nullptr) return;
-    hitDelivered_ = true;
+    if (*hitDelivered_ || target_ == nullptr) return;
+    *hitDelivered_ = true;
     target_->takeDamage(damage_);
     target_->applyStatus({unit::StatusType::Poisoned, 3, 1});
     if (hitCb_) hitCb_();
 }
 
 void AttackAction::onComplete() {
-    if (!hitDelivered_) applyDamage();
+    if (!*hitDelivered_) applyDamage();
 
     auto* node = attacker_->node();
     if (node) {
@@ -495,6 +500,34 @@ void Manager::selfTest() {
         assert(u.cell().y == 1);
         const math::Vec3 end = u.node()->local().transformPoint(math::Vec3(0, 0, 0));
         assert(math::approxEqual(end.y, 0.0f, 1e-4f));
+    }
+
+    {
+        SceneNode parent;
+        game::Unit a(&parent, unit::Faction::Player, unit::Stats{10, 5, 3, 4});
+        game::Unit b(&parent, unit::Faction::Enemy, unit::Stats{10, 2, 0, 3});
+
+        anim::Clip atk;
+        atk.loop = false;
+        atk.keyframes = {
+            {0.0f, math::Vec3(0.0f), math::Quat::identity(), math::Vec3(1.0f)},
+            {0.5f, math::Vec3(0.0f), math::Quat::identity(), math::Vec3(1.0f)},
+        };
+        atk.events = {{0.2f, 1}};
+
+        int hits = 0;
+        Manager mgr;
+        auto act = std::make_unique<AttackAction>(&a, &b, 3, &atk);
+        act->setHitCallback([&hits] { ++hits; });
+        mgr.enqueue(std::move(act));
+
+        for (int i = 0; i < 10; ++i) {
+            parent.update(0.1f);
+            mgr.update(0.1f);
+        }
+        assert(mgr.isIdle());
+        assert(b.hp() == 7);
+        assert(hits == 1);
     }
 
     aout << "[action] self-test PASS" << std::endl;

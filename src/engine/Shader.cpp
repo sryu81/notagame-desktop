@@ -7,6 +7,10 @@
 #include "AndroidOut.h"
 #include "Utility.h"
 
+static_assert(Shader::clampBoneCount(100) == Shader::kMaxBones, "bone clamp");
+static_assert(Shader::clampBoneCount(-1) == 0, "bone clamp");
+static_assert(Shader::clampBoneCount(20) == 20, "bone clamp");
+
 Shader *Shader::loadShader(
         const std::string &vertexSource,
         const std::string &fragmentSource,
@@ -126,6 +130,7 @@ void Shader::setHasTexture(bool has) const {
 }
 
 void Shader::setBoneMatrices(const float *m, int count) const {
+    count = clampBoneCount(count);
     if (boneMatrices_ != -1 && count > 0) {
         glUniformMatrix4fv(boneMatrices_, count, false, m);
     }

@@ -108,6 +108,17 @@ std::vector<math::Mat4> sampleSkeletal(const SkeletalClip &clip, float time, int
     return result;
 }
 
+std::vector<math::Mat4> sampleSkeletal(const SkeletalClip &clip, float time, const Skeleton &skel) {
+    const int boneCount = static_cast<int>(skel.bones.size());
+    std::vector<math::Mat4> result(boneCount);
+    for (int i = 0; i < boneCount; ++i) result[i] = skel.bones[i].restLocal;
+    for (const auto &track : clip.tracks) {
+        if (track.boneIndex < 0 || track.boneIndex >= boneCount) continue;
+        result[track.boneIndex] = sampleKeyframes(track.keyframes, time, clip.loop);
+    }
+    return result;
+}
+
 void selfTest() {
     aout << "[anim] self-test starting" << std::endl;
 
@@ -257,6 +268,19 @@ void skeletalSelfTest() {
         auto result = sampleSkeletal(clip, 0.0f, 2);
         assert(result.size() == 2);
         assert(math::approxEqual(result[0].m[12], 0.0f, 1e-5f));
+    }
+
+    {
+        Skeleton skel;
+        skel.bones.push_back({-1, math::Mat4::identity(), math::Mat4::translation(math::Vec3(0.0f, 2.0f, 0.0f))});
+        skel.bones.push_back({0, math::Mat4::identity(), math::Mat4::translation(math::Vec3(0.0f, 1.5f, 0.0f))});
+        SkeletalClip clip;
+        clip.tracks.push_back({0, {
+            {0.0f, math::Vec3(1.0f, 0.0f, 0.0f), math::Quat::identity(), math::Vec3(1.0f)}}});
+        auto result = sampleSkeletal(clip, 0.0f, skel);
+        assert(result.size() == 2);
+        assert(math::approxEqual(result[0].m[12], 1.0f, 1e-5f));
+        assert(math::approxEqual(result[1].m[13], 1.5f, 1e-5f));
     }
 
     aout << "[skeletal] self-test PASS" << std::endl;

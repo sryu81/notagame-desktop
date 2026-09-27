@@ -1,5 +1,6 @@
 #include "EntityBuilder.h"
 
+#include <algorithm>
 #include <cassert>
 #include <functional>
 
@@ -54,24 +55,27 @@ void EntityBuilder::placeUnitAtCell(Unit* u) {
 void EntityBuilder::createShadowMirror(Unit* u) {
     if (!u || !u->node() || !shadowRoot_) return;
     SceneNode* sn = shadowRoot_->addChild();
-    sn->setLocal(u->node()->local());
-    std::vector<std::pair<math::Mat4, SceneNode::Drawable>> flatDrawables;
-    std::function<void(const SceneNode*, const math::Mat4&)> collect =
-        [&](const SceneNode* n, const math::Mat4& parentXf) {
-            math::Mat4 localXf = parentXf * n->local();
-            for (const auto& d : n->drawables())
-                flatDrawables.push_back({localXf, d});
-            for (const auto& child : n->children())
-                collect(child.get(), localXf);
+    std::function<void(const SceneNode*, SceneNode*)> clone =
+        [&](const SceneNode* src, SceneNode* dst) {
+            for (const auto& child : src->children()) {
+                SceneNode* dc = dst->addChild();
+                for (const auto& d : child->drawables()) dc->addDrawable(d);
+                clone(child.get(), dc);
+            }
         };
-    for (const auto& child : u->node()->children())
-        collect(child.get(), math::Mat4::identity());
-    for (auto& [xf, dw] : flatDrawables) {
-        SceneNode* dn = sn->addChild();
-        dn->setLocal(xf);
-        dn->addDrawable(dw);
-    }
+    clone(u->node(), sn);
+    syncShadowMirror(u->node(), sn);
     shadowNodes_.push_back(sn);
+}
+
+void EntityBuilder::syncShadowMirror(const SceneNode* src, SceneNode* dst) {
+    if (!src || !dst) return;
+    dst->setLocal(src->local());
+    if (src->hasBoneMatrices()) dst->setBoneMatrices(src->boneMatrices());
+    const auto& sc = src->children();
+    const auto& dc = dst->children();
+    const size_t n = std::min(sc.size(), dc.size());
+    for (size_t i = 0; i < n; ++i) syncShadowMirror(sc[i].get(), dc[i].get());
 }
 
 Unit* EntityBuilder::spawnUnit(const SpawnDef& def) {
@@ -338,6 +342,19 @@ void EntityBuilder::selfTest() {
         eb.spawnUnit({.mesh = &m});
         eb.eachUnit([&](Unit& c) { charCount++; });
         assert(charCount == 1);
+    }
+    {
+        SceneNode src, dst;
+        SceneNode* sc = src.addChild();
+        SceneNode* dc = dst.addChild();
+        sc->setBoneMatrices({math::Mat4::translation(math::Vec3(1.0f, 0.0f, 0.0f))});
+        src.setLocal(math::Mat4::translation(math::Vec3(2.0f, 0.0f, 0.0f)));
+        sc->setLocal(math::Mat4::translation(math::Vec3(0.0f, 3.0f, 0.0f)));
+        syncShadowMirror(&src, &dst);
+        assert(math::approxEqual(dst.local().m[12], 2.0f, 1e-6f));
+        assert(math::approxEqual(dc->local().m[13], 3.0f, 1e-6f));
+        assert(dc->hasBoneMatrices());
+        assert(math::approxEqual(dc->boneMatrices()[0].m[12], 1.0f, 1e-6f));
     }
 
     aout << "[entity-builder] self-test PASS" << std::endl;

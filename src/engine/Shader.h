@@ -25,6 +25,10 @@ public:
     static constexpr GLint kBoneWeightsAttrib = 4;
     static constexpr int kMaxBones = 48;
 
+    static constexpr int clampBoneCount(int count) {
+        return count < 0 ? 0 : (count > kMaxBones ? kMaxBones : count);
+    }
+
     static Shader *loadShader(
             const std::string &vertexSource,
             const std::string &fragmentSource,

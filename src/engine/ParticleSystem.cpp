@@ -27,6 +27,8 @@ void Emitter::emit(const math::Vec3& pos, const math::Vec3& vel,
     p.size = size;
     p.lifetime = lifetime;
     p.age = 0.0f;
+    p.baseAlpha = color.w;
+    p.baseSize = size;
     ++activeCount_;
 }
 
@@ -61,8 +63,8 @@ void Emitter::update(float dt) {
         float t = p.age / p.lifetime;
         p.position = p.position + p.velocity * dt;
         p.velocity = p.velocity + config_.gravity * dt;
-        p.color.w = math::clamp(1.0f - t, 0.0f, 1.0f);
-        p.size = p.size * (1.0f - t * config_.sizeShrinkFactor);
+        p.color.w = p.baseAlpha * math::clamp(1.0f - t, 0.0f, 1.0f);
+        p.size = p.baseSize * (1.0f - t * config_.sizeShrinkFactor);
         if (writeIdx != i) particles_[writeIdx] = p;
         ++writeIdx;
     }
@@ -126,6 +128,24 @@ void Emitter::selfTest() {
         assert(e.activeCount() == 1);
         assert(e.particles()[0].color.w < 0.6f);
         assert(e.particles()[0].size < 0.8f);
+    }
+
+    {
+        Emitter e(1);
+        e.emit({0,0,0}, {0,0,0}, {1,1,1,0.5f}, 1.0f, 1.0f);
+        e.update(0.5f);
+        assert(math::approxEqual(e.particles()[0].color.w, 0.25f, 1e-5f));
+        assert(math::approxEqual(e.particles()[0].size, 0.75f, 1e-5f));
+    }
+
+    {
+        Emitter a(1), b(1);
+        a.emit({0,0,0}, {0,0,0}, {1,1,1,1}, 1.0f, 1.0f);
+        b.emit({0,0,0}, {0,0,0}, {1,1,1,1}, 1.0f, 1.0f);
+        a.update(0.5f);
+        for (int i = 0; i < 50; ++i) b.update(0.01f);
+        assert(math::approxEqual(a.particles()[0].size, b.particles()[0].size, 1e-4f));
+        assert(math::approxEqual(a.particles()[0].color.w, b.particles()[0].color.w, 1e-4f));
     }
 
     // Setters / config round-trip

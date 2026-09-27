@@ -83,6 +83,7 @@ Renderer::~Renderer() {
         if (particleVbo_) { glDeleteBuffers(1, &particleVbo_); particleVbo_ = 0; }
         if (particleIbo_) { glDeleteBuffers(1, &particleIbo_); particleIbo_ = 0; }
         shadowShader_.reset();
+        shadowSkinnedShader_.reset();
         if (shadowDepthTex_) { glDeleteTextures(1, &shadowDepthTex_); shadowDepthTex_ = 0; }
         if (shadowFbo_) { glDeleteFramebuffers(1, &shadowFbo_); shadowFbo_ = 0; }
         camera_.reset();
@@ -163,8 +164,9 @@ void Renderer::renderParticles(const particle::Emitter& emitter) {
                      particleBufferMax_ * 7 * sizeof(float),
                      nullptr, GL_DYNAMIC_DRAW);
 
-        std::vector<unsigned short> indices(static_cast<size_t>(count) * 6);
-        for (int i = 0; i < count; ++i) {
+        const int maxQuads = particleBufferMax_ / 4;
+        std::vector<unsigned short> indices(static_cast<size_t>(maxQuads) * 6);
+        for (int i = 0; i < maxQuads; ++i) {
             int base = i * 4;
             indices[i * 6 + 0] = static_cast<unsigned short>(base + 0);
             indices[i * 6 + 1] = static_cast<unsigned short>(base + 1);
@@ -209,7 +211,10 @@ void Renderer::renderParticles(const particle::Emitter& emitter) {
                           reinterpret_cast<const void*>(12));
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, particleIbo_);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glDrawElements(GL_TRIANGLES, count * 6, GL_UNSIGNED_SHORT, nullptr);
+    glDisable(GL_BLEND);
 
     glDisableVertexAttribArray(0);
     glDisableVertexAttribArray(1);
@@ -248,7 +253,10 @@ void Renderer::renderStars(const engine::stars::StarField& field, float intensit
     glEnableVertexAttribArray(2);
     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(SVertex),
                           reinterpret_cast<const void*>(16));
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
     glDrawArrays(GL_POINTS, 0, count);
+    glDisable(GL_BLEND);
     glDisableVertexAttribArray(0);
     glDisableVertexAttribArray(1);
     glDisableVertexAttribArray(2);
@@ -265,7 +273,10 @@ void Renderer::renderLightningFlash(const math::Vec3& color, float intensity) {
     flashShader_->setFloat3("uColor", color.x, color.y, color.z);
     flashShader_->setFloat("uIntensity", intensity);
     glBindVertexArray(flashVao_);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glDisable(GL_BLEND);
     glBindVertexArray(0);
     glDepthMask(GL_TRUE);
 }
@@ -331,9 +342,6 @@ void Renderer::initRenderer() {
 
     glGenBuffers(1, &particleVbo_);
     glGenBuffers(1, &particleIbo_);
-
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     {
         std::string vs = shader::loadSource(platform_, "shaders/stars.vert");
@@ -489,6 +497,12 @@ void Renderer::initShadowMap() {
         shadowShader_.reset(Shader::loadShader(vs, fs, {}, false));
     }
     assert(shadowShader_);
+    {
+        std::string vs = shader::loadSource(platform_, "shaders/shadow_skinned.vert");
+        std::string fs = shader::loadSource(platform_, "shaders/shadow.frag");
+        shadowSkinnedShader_.reset(Shader::loadShader(vs, fs, {}, false));
+    }
+    assert(shadowSkinnedShader_);
 }
 
 math::Mat4 Renderer::computeLightVP() const {
@@ -509,10 +523,20 @@ math::Mat4 Renderer::computeLightVP() const {
 
 void Renderer::renderNodeShadow(const SceneNode* node) {
     const math::Mat4 world = node->world();
+    const Shader* sh = node->hasBoneMatrices() ? shadowSkinnedShader_.get() : shadowShader_.get();
     for (const auto& d : node->drawables()) {
         if (!d.model || !d.material) continue;
         if (d.material->shader == nullptr) continue;
-        shadowShader_->setModelMatrix(world.m);
+        if (sh != currentShader_) {
+            sh->activate();
+            sh->setLightVP(lightVP_.m);
+            currentShader_ = sh;
+        }
+        if (node->hasBoneMatrices()) {
+            const auto& bm = node->boneMatrices();
+            sh->setBoneMatrices(&bm[0].m[0], static_cast<int>(bm.size()));
+        }
+        sh->setModelMatrix(world.m);
         d.model->draw();
     }
     for (const auto& child : node->children()) renderNodeShadow(child.get());
@@ -526,9 +550,9 @@ void Renderer::shadowPass(const SceneNode* root) {
     glDepthFunc(GL_LEQUAL);
     glEnable(GL_POLYGON_OFFSET_FILL);
     glPolygonOffset(4.0f, 4.0f);
-    shadowShader_->activate();
-    shadowShader_->setLightVP(lightVP_.m);
+    currentShader_ = nullptr;
     renderNodeShadow(root);
+    currentShader_ = nullptr;
     glDisable(GL_POLYGON_OFFSET_FILL);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glViewport(0, 0, width_, height_);

@@ -19,6 +19,8 @@ cmake --build build                   # incremental; new .cpp files picked up by
 ./build/not_a_game                    # runs all selfTests, then opens the window
 ./build/not_a_game --data ./save      # save dir (default ~/.local/share/notagame)
 ./build/not_a_game --assets ./assets  # asset dir (default <exe dir>/assets symlink)
+scripts/rebuild_run.sh                # rm -rf build, configure, build, launch
+scripts/rebuild_run.sh --asan -- --data ./save   # same in build-asan; args after -- go to game
 ```
 
 Sanitizers: `cmake -S . -B build-asan -G Ninja -DNAG_SANITIZE=ON && cmake --build build-asan`
@@ -74,6 +76,12 @@ Everything else in `src/engine` and `src/game` is portable — diff and copy.
 
 Fixes made here that upstream lacks (keep this list current):
 - `SceneManager::selfTest` use-after-free (read counters of deleted scene).
+- DEMO_PLAN B1–B8: per-draw blend state (particles/stars/flash), particle IBO
+  sized to buffer capacity, attack event+timer share one hit flag, skinned
+  shadow shader (`shadow_skinned.vert`) + full-hierarchy shadow mirror sync,
+  emitter keeps emit alpha/size (frame-rate independent shrink), bones use
+  glTF rest TRS (`Bone::restLocal`), default roster restores to unit max HP,
+  `Shader::setBoneMatrices` clamps to `kMaxBones`.
 
 Easiest merge path: in notagame, add the same `Platform` seam first, then
 `diff -r src/engine ../notagame/engine-module/src/main/cpp/engine`.

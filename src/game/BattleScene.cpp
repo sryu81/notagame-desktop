@@ -1944,7 +1944,7 @@ void BattleScene::update(float dt, Renderer& r) {
             SceneNode* sn = d().registry->shadowAt(i);
             auto* c = d().registry->unitAt(i);
             if (sn && c && c->node())
-                sn->setLocal(c->node()->local());
+                game::EntityBuilder::syncShadowMirror(c->node(), sn);
         }
     }
 

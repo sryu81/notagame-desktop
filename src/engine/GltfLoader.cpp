@@ -156,6 +156,7 @@ static bool extractSkeleton(cgltf_data* data, anim::Skeleton& out) {
             cgltf_accessor_read_float(skin->inverse_bind_matrices, j, m, 16);
             std::memcpy(bone.invBindPose.m, m, sizeof(float) * 16);
         }
+        cgltf_node_transform_local(skin->joints[j], bone.restLocal.m);
     }
     return true;
 }
@@ -236,14 +237,25 @@ static void extractAnimations(cgltf_data* data,
             for (float t : trs.sTimes) timeSet.insert(t);
             if (timeSet.empty()) continue;
 
+            const cgltf_node* joint = skin->joints[boneIdx];
+            const math::Vec3 restT = joint->has_translation
+                ? math::Vec3(joint->translation[0], joint->translation[1], joint->translation[2])
+                : math::Vec3(0.0f, 0.0f, 0.0f);
+            const math::Quat restR = joint->has_rotation
+                ? math::Quat{joint->rotation[0], joint->rotation[1], joint->rotation[2], joint->rotation[3]}
+                : math::Quat::identity();
+            const math::Vec3 restS = joint->has_scale
+                ? math::Vec3(joint->scale[0], joint->scale[1], joint->scale[2])
+                : math::Vec3(1.0f, 1.0f, 1.0f);
+
             anim::BoneTrack btrack;
             btrack.boneIndex = boneIdx;
             for (float t : timeSet) {
                 anim::Keyframe kf;
                 kf.time        = t;
-                kf.translation = sampleVec3Track(trs.tTimes, trs.tValues, t, {0.0f, 0.0f, 0.0f});
-                kf.rotation    = sampleQuatTrack(trs.rTimes, trs.rValues, t, math::Quat::identity());
-                kf.scale       = sampleVec3Track(trs.sTimes, trs.sValues, t, {1.0f, 1.0f, 1.0f});
+                kf.translation = sampleVec3Track(trs.tTimes, trs.tValues, t, restT);
+                kf.rotation    = sampleQuatTrack(trs.rTimes, trs.rValues, t, restR);
+                kf.scale       = sampleVec3Track(trs.sTimes, trs.sValues, t, restS);
                 btrack.keyframes.push_back(kf);
             }
             clip.tracks.push_back(std::move(btrack));

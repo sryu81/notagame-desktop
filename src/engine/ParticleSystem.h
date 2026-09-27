@@ -14,6 +14,8 @@ struct Particle {
     float size;
     float lifetime;
     float age;
+    float baseAlpha;
+    float baseSize;
 };
 
 class Emitter {

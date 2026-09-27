@@ -112,7 +112,7 @@ longer loaded by the battle scene.
 
 ### P2 — Labs
 
-Status: not started (reviewed 2026-09-26).
+Status: P2.1 FxLab done; P2.2–P2.5 open.
 
 Every lab follows the same shape:
 
@@ -132,6 +132,12 @@ auto-drive run, ASan run clean, 49+ selfTests still pass.
 
 #### P2.1 FxLab — particles, sky, weather (no engine changes)
 
+Status: done 2026-09-26 — `src/game/FxLab.{h,cpp}`, 12/12 green in a 28 s
+auto-drive under ASan. Found and fixed: `stars.bin` held RA in hours read
+as degrees, so every star sat in a 24° wedge near +X and none were ever on
+screen (`scripts/make_stars.py` fixed, asset regenerated). Camera sits low
+(eye y=2, looking up) so sky, stars and rain fill the top half.
+
 Scene: flat 20×20 grid, camera fixed at ISO, clock at 12:00.
 
 | Row | Observed condition |
@@ -142,9 +148,9 @@ Scene: flat 20×20 grid, camera fixed at ISO, clock at 12:00.
 | `gravity knob` | burst velocity.y after 0.5 s changes sign with GRAV 0 vs −8 |
 | `shrink fps-indep.` | size at t=0.5·life matches formula at 30 and 60 FPS dt |
 | `rain color` | rain particle rgb == `WeatherPalette.rainColor` |
-| `sky knobs` | each of the 8 `SkyConfig` fields changes `SunState.skyColor` or `ambient` |
+| `sky knobs` | each of the 8 `SkyConfig` fields is stored by its `Renderer` setter and changes `SunState` (`skyColor`, `ambient`, `ambientColor` or `starIntensity`; `ambientColor` is not rendered until P4) |
 | `storm mix` | `stormSkyMix` 0 vs 1 changes skyColor at noon |
-| `stars at night` | `starIntensity > 0` at 00:00, `== 0` at 12:00 |
+| `stars at night` | at 00:00 `starIntensity > 0` and ≥ 10 stars project inside the view (CPU copy of the `stars.vert` rotation); `starIntensity == 0` at 12:00 |
 | `star knobs` | `StarRenderConfig.pointSize`/`brightnessScale` change → reapplied |
 | `lightning` | ≥1 flash within `baseDelay + jitter`, flash decays to 0 |
 | `blend state` | `glIsEnabled(GL_BLEND)` false after UI render (B1 regression) |

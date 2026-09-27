@@ -53,6 +53,7 @@ Game scenes: `TitleScene` → `HubScene` (lab list + BATTLE) → `BattleScene`.
 Battle is split into `BattleData.h` (shared `battle::Data`),
 `BattleContent` (assets/level), `BattleRules` (paths, attacks, pick, save),
 `BattleInput` (taps), `BattleHUD` (DebugPanel menus), `BattleScene` (lifecycle).
+Labs: `FxLab` (particles/sky/weather, 12 auto-driven checks).
 Lab helpers: `DebugPanel` (row list), `LabChecklist` (green-on-pass rows),
 `LabAssets` (lit/skinned/unlit shaders + materials, plane/cube meshes).
 
@@ -93,6 +94,10 @@ Fixes made here that upstream lacks (keep this list current):
   `Shader::setBoneMatrices` clamps to `kMaxBones`.
 - Battle assets go through `game::LabAssets`, which calls `releaseGL()` on
   exit (upstream leaked the registry VBO/IBO on every battle enter/RESET).
+- `assets/stars.bin` regenerated: `make_stars.py` read HYG RA (hours) as
+  degrees, squeezing all stars into a 24° wedge that was never on screen.
+  Script now writes `assets/stars.bin` (or argv[1]).
+- Battle rain uses `WeatherPalette.rainColor` (was hard-coded).
 - Font: punctuation glyphs (`. : % = < > / ( ) , ? * ' _`) and lowercase →
   uppercase shapes. Regenerate with `python3 tools/gen_font.py > src/engine/FontData.h`
   (`tools/gen_font.py` is copied from upstream and extended).
@@ -114,4 +119,4 @@ Verified: 47 selfTests PASS; title + battle render at 60 FPS on Mesa radeonsi
 (GLES 3.2); PulseAudio via miniaudio; level + 3 .glb load.
 
 Done: P0 B1–B8, P1 (hub, DebugPanel, LabChecklist, battle split, LabAssets).
-Next: P2 labs in DEMO_PLAN §6 order, starting with FxLab.
+Next: P2.2 CameraLab (DEMO_PLAN §6 order).

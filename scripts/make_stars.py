@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Generate app/src/main/assets/stars.bin from the HYG stellar database.
+Generate assets/stars.bin from the HYG stellar database.
 
 HYG (Hipparcos + Yale + Gliese) v3 is public domain: 120k+ stars.
 Trim to brightest 2000 by magnitude, convert RA/Dec to unit XYZ,
@@ -25,7 +25,7 @@ import random
 HYG_URL = "https://raw.githubusercontent.com/astronexus/HYG-Database/main/hyg/v3/hyg_v34.csv.gz"
 TARGET = os.path.join(
     os.path.dirname(os.path.abspath(__file__)),
-    "..", "app", "src", "main", "assets", "stars.bin",
+    "..", "assets", "stars.bin",
 )
 import struct as _struct
 MAGIC = _struct.pack("<I", 0x53545253)
@@ -94,7 +94,7 @@ def _parse_ra(ra_str):
         h = float(hms[0]); m = float(hms[1]) if len(hms) > 1 else 0.0
         sec = float(hms[2]) if len(hms) > 2 else 0.0
         return (h + m / 60.0 + sec / 3600.0) * 15.0
-    return float(s)
+    return float(s) * 15.0
 
 
 def _parse_dec(dec_str):
@@ -184,9 +184,10 @@ def fallback_stars(limit):
     rng = random.Random(0xC0FFEE)
     real = []
     for name, ra, dec, mag in MILLIWAYS_FALLBACK[:50]:
-        if isinstance(ra, str): continue
-        if isinstance(dec, str): continue
-        real.append((ra, dec, mag, 0.5))
+        ra_deg = _parse_ra(ra)
+        dec_deg = _parse_dec(dec) if isinstance(dec, str) else dec
+        if ra_deg is None or dec_deg is None: continue
+        real.append((ra_deg, dec_deg, mag, 0.5))
     real.sort(key=lambda r: r[2])
 
     fill = []
@@ -225,7 +226,8 @@ def write_bin(stars, out_path):
 
 
 def main():
-    os.makedirs(os.path.dirname(TARGET), exist_ok=True)
+    target = sys.argv[1] if len(sys.argv) > 1 else TARGET
+    os.makedirs(os.path.dirname(os.path.abspath(target)), exist_ok=True)
     rows = None
     try:
         text = fetch_hyg()
@@ -239,8 +241,8 @@ def main():
     if not rows:
         rows = fallback_stars(MAX_STARS)
 
-    write_bin(rows, TARGET)
-    print(f"[stars] wrote {len(rows)} stars to {TARGET}", file=sys.stderr)
+    write_bin(rows, target)
+    print(f"[stars] wrote {len(rows)} stars to {os.path.normpath(target)}", file=sys.stderr)
 
 
 if __name__ == "__main__":

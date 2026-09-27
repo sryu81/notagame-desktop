@@ -152,7 +152,8 @@ void BattleScene::update(float dt, Renderer& r) {
             const int count = static_cast<int>(d().rainAccum);
             d().rainAccum -= static_cast<float>(count);
             const math::Vec3 camPos = r.camera().eye();
-            const math::Vec4 rainColor(0.5f, 0.75f, 1.0f, 0.5f);
+            const math::Vec3& rc = d().palettes.weather.rainColor;
+            const math::Vec4 rainColor(rc.x, rc.y, rc.z, 0.5f);
             for (int i = 0; i < count; ++i) {
                 const math::Vec3 pos = engine::wx::rainSpawnPos(camPos);
                 d().rainEmitter.emit(pos, math::Vec3(0.0f, -5.0f, 0.0f),

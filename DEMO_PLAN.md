@@ -108,15 +108,201 @@ longer loaded by the battle scene.
 5. Shared `LabAssets`: shaders and materials loaded once per scene through
    `AssetRegistry`, using `find*` and `releaseGL` on exit (both unused today).
 
-### P2 — Labs (each independent; any order)
+### P2 — Labs
 
-| Lab | Exercises | Needs |
+Status: not started (reviewed 2026-09-26).
+
+Every lab follows the same shape:
+
+- Files `src/game/<Name>Lab.{h,cpp}`, 200–400 lines, one `Scene` subclass.
+  Hub entry in `HubScene::entries` switches from `nullptr` to a factory.
+- Uses `LabAssets` for shaders/materials, `DebugPanel` for knobs (left),
+  `LabChecklist` for checks (top-left), BACK row returns to Hub.
+- **Auto-drive:** a scripted timeline exercises every row with no input, so
+  entering the lab and waiting ~30 s turns every row green. The DebugPanel
+  is for manual poking on top of that.
+- A check turns green only on an observed runtime value (a number compared
+  against an expected value), never on "the code path ran".
+- Engine changes land with a host selfTest; the lab only proves them on GPU.
+
+**Done when (per lab):** hub entry enabled, all rows green in one
+auto-drive run, ASan run clean, 49+ selfTests still pass.
+
+#### P2.1 FxLab — particles, sky, weather (no engine changes)
+
+Scene: flat 20×20 grid, camera fixed at ISO, clock at 12:00.
+
+| Row | Observed condition |
+|---|---|
+| `burst alpha fades` | a burst particle's alpha at t=0.5·life is 0.5·emit alpha (±0.05) (B5) |
+| `rain keeps alpha` | Storm rain particle alpha ≤ 0.5 at spawn (B5) |
+| `particle ibo grows` | rain `activeCount` passes 512 → 1024 with no GL error (B2) |
+| `gravity knob` | burst velocity.y after 0.5 s changes sign with GRAV 0 vs −8 |
+| `shrink fps-indep.` | size at t=0.5·life matches formula at 30 and 60 FPS dt |
+| `rain color` | rain particle rgb == `WeatherPalette.rainColor` |
+| `sky knobs` | each of the 8 `SkyConfig` fields changes `SunState.skyColor` or `ambient` |
+| `storm mix` | `stormSkyMix` 0 vs 1 changes skyColor at noon |
+| `stars at night` | `starIntensity > 0` at 00:00, `== 0` at 12:00 |
+| `star knobs` | `StarRenderConfig.pointSize`/`brightnessScale` change → reapplied |
+| `lightning` | ≥1 flash within `baseDelay + jitter`, flash decays to 0 |
+| `blend state` | `glIsEnabled(GL_BLEND)` false after UI render (B1 regression) |
+
+Auto-drive: Clear → Rain → Storm (10 s each), time-lapse 00:00 → 24:00 at
+2 h/s, cycle each sky knob once.
+
+#### P2.2 CameraLab — camera and input (no engine changes)
+
+Scene: grid + 5 cubes at known cells as pick targets.
+
+| Row | Observed condition |
+|---|---|
+| `orbit yaw` | `orbit(45, 0)` changes eye yaw by 45° (±0.5°) |
+| `pitch limits` | `setPitchLimits(20, 60)` then orbit past → pitch clamped to 60 |
+| `yaw limits` | same for yaw ±45° |
+| `ortho toggle` | `setOrthographic` → projection m[15] == 1 |
+| `set forward` | `setForward(+X)` → view forward ≈ +X |
+| `follow target` | target tracks a moving cube within 1 frame |
+| `pick hit` | `pickAt` at a cube's projected center returns that cube |
+| `pick miss` | `pickAt` on empty sky → invalid |
+| `pointer move` | ≥1 `PointerMoveEvent` while dragging (manual row) |
+| `pointer up` | `PointerUpEvent` after down (manual row) |
+| `key down` | `KeyDownEvent` received; keys 1–5 select presets (manual row) |
+
+Manual rows need the user; auto-drive covers the rest.
+
+#### P2.3 RenderLab — draw path
+
+Scene: plane + textured cube + UV sphere + `unit_v2` skinned + `test_rig`
+(from P2.5 asset, optional) under a rotating sun.
+
+Engine change **R1**: `Renderer::computeLightVP` centres the ortho box on
+`camera().target()` with a configurable half-size
+(`setShadowExtent(float)`), instead of ±12 at the origin.
+
+| Row | Observed condition |
+|---|---|
+| `texture material` | cube drawn with `texMat` (`android_robot.png`), texture id ≠ 0 |
+| `primitives` | cube 12 tris, sphere(1, 12, 24) tri count as expected |
+| `skinned draw` | `unit_v2` node has bone matrices, uploaded count == bones |
+| `cpu vs gpu skin` | `skinMesh` vertex 0 == bone[k]·bind vertex 0 (±1e-4) |
+| `shadow casters` | shadow pass draws > 0 nodes, incl. ≥1 skinned (B4) |
+| `shadow follows` | pan camera 20 cells → casters still in light frustum (R1) |
+| `depthWrite off` | a `depthWrite=false` quad does not occlude the cube behind |
+| `bounding sphere` | gizmo radius == `boundingSphereRadius()` |
+| `bone clamp` | 60-bone upload clamps to 48 (B8) |
+| `heavy mesh` (opt-in) | robot1 or decimated mesh loads; frame time logged |
+
+#### P2.4 SystemsLab — save, inventory, catalog, clock, audio
+
+Engine/game changes **S1**: `GameState` and `EntityRegistry` derive from
+`engine::Saveable`. **S2**: `tools/gen_sfx.py` synthesises 48 kHz mono
+`select.wav move.wav hit.wav miss.wav turn.wav` and `music2.wav`.
+
+| Row | Observed condition |
+|---|---|
+| `save slots` | write slots 1–3 via `save::writeAll`, read back equal |
+| `slot isolation` | slot 2 edit does not change slot 1 on reload |
+| `bag` | add 3/remove 1 → `countOf` == 2 |
+| `equip` | equip Head → `get(Head)` set, second equip rejected, unequip returns item |
+| `catalog` | `find`/`remove`/`all` sizes consistent |
+| `custom calendar` | `Clock(4, 10)`: day 41 → year 2 |
+| `sfx voices` | 5 SFX play overlapped, active voices ≥ 2 |
+| `music switch` | `playMusic(music2)` replaces `music` |
+| `volume buses` | master 0 → mixed output silent |
+
+#### P2.5 AnimLab — clips, skeletal, events, IK
+
+Decisions (2026-09-26): **procedural test rig first**, a real CC0 character
+later (P4); loop flags and events follow a **clip name convention**.
+
+**Asset: `tools/gen_test_rig.py` → `assets/test_rig.glb`.** A box humanoid
+written directly as glTF, so every value is known and the checklist can
+assert numbers.
+
+- One mesh, one primitive, one material. One box per bone, every vertex
+  weighted 1.0 to its bone (rigid). ~180 tris.
+- 15 joints, parent-first order, all names set:
+
+  | # | Joint | Parent | Rest offset from parent (m) |
+  |---|---|---|---|
+  | 0 | `Hips` | — | (0, 1.00, 0) |
+  | 1 | `Spine` | Hips | (0, 0.25, 0) |
+  | 2 | `Head` | Spine | (0, 0.35, 0) |
+  | 3 | `UpperArm.L` | Spine | (0.22, 0.28, 0) |
+  | 4 | `LowerArm.L` | UpperArm.L | (0, −0.28, 0) |
+  | 5 | `Hand.L` | LowerArm.L | (0, −0.25, 0) |
+  | 6–8 | `UpperArm.R`, `LowerArm.R`, `Hand.R` | mirror of 3–5 | x → −x |
+  | 9 | `UpperLeg.L` | Hips | (0.12, 0, 0) |
+  | 10 | `LowerLeg.L` | UpperLeg.L | (0, −0.45, 0) |
+  | 11 | `Foot.L` | LowerLeg.L | (0, −0.45, 0) |
+  | 12–14 | `UpperLeg.R`, `LowerLeg.R`, `Foot.R` | mirror of 9–11 | x → −x |
+
+  Legs hang straight down −Y in rest (what `solveTwoBone` assumes); feet at
+  y = 0.10; +Y up, faces +Z, armature node identity.
+- Clips (linear keys, sampled at 30 fps):
+
+  | Clip | Length | Motion | Notes |
+  |---|---|---|---|
+  | `Idle` | 2.0 s | Spine X ±3°, Head Y ±10° | arms **untracked** (B6 check) |
+  | `Walk` | 1.0 s | UpperLeg X ±25° opposite phase, LowerLeg bend 0–40°, arms ±20°, Hips y bob 0.03 | in place |
+  | `Attack` | 0.6 s | UpperArm.R X 0 → −100° (0.25) → −20° (0.35) → 0 | hit at 0.35 |
+  | `Hurt` | 0.4 s | Spine X −15° at 0.1, back to 0 | |
+
+**Clip name convention** (engine, `anim::clipTraits(name)`):
+
+- Loop: `Idle`, `Walk`, `Run`, and any name ending `_loop`. Everything else
+  is one-shot (`Attack`, `Hurt`, `Death`, `*_once`).
+- Events: a game-side table keyed by clip name, applied after load
+  (`src/game/ClipEvents.{h,cpp}`):
+
+  | Clip | Events (time s → id) |
+  |---|---|
+  | `Attack` | 0.35 → `kHit` (1) |
+  | `Walk` | 0.0 → `kFootL` (2), 0.5 → `kFootR` (3) |
+  | `Hurt`, `Idle` | none |
+
+  The generator and the table share these numbers; the generator prints
+  them so a mismatch is visible.
+
+**Engine changes** (each with a host selfTest on synthetic data):
+
+| # | Change | Where |
 |---|---|---|
-| **RenderLab** | `texMat` on cube/plane (A1 again); `makeUVSphere`/`makeCube` (G1–G2); skinned `unit_v2` with `skinMat` + `setSkeleton` (A2 really drawn); CPU `skinMesh` next to the GPU version for comparison (G4); shadow casters incl. skinned (B4, F7); shadow frustum following the camera target instead of ±12 at origin (X6); `depthWrite=false` drawable; bounding-sphere gizmo (G3) | B4 fix; frustum follow in `Renderer::computeLightVP` |
-| **AnimLab** | Rigid clip + `AnimEvent`; skeletal idle/attack loaded **by name from the glb**; `setPlaybackRate` slider (Y5); event re-fire across loop (Y4); FootIK on a slope using `TileGrid::cellY` (F6); walk clip during a move (L3) | Real rigged low-poly humanoid glb (idle/walk/attack/hurt, named hip/knee/foot bones); `SkeletalClip` events (replace the hard-coded 0.15 s) |
-| **FxLab** | Emitter jitter/shrink/gravity (all setters); rain with `WeatherPalette.rainColor`; all SkyConfig setters incl. the 4 unused ones and `setSkyConfig` rain/storm mixes; `StarRenderConfig` knobs at night (X4); lightning knobs; time-lapse | B1, B2, B5 fixes |
-| **CameraLab** | `orbit`/yaw presets (±45°), `setPitchLimits`/`setYawLimits`, `setOrthographic` toggle, `setForward`, follow target, `pickAt` hit display on meshes (A4), PointerUp/Move and KeyDown consumers (F5) | Camera API only |
-| **SystemsLab** | Save slots 1–3 through `Saveable` + `save::writeAll/loadAll` (F1, F2); `Bag` add/remove/countOf and `EquipSlots` equip/unequip shown in HUD; `Catalog` find/remove/all; `Clock(months, days)` custom calendar (C5); per-voice SFX triggers; music switch (F10, F11) | `GameState`/`EntityRegistry` derive from `engine::Saveable`; a few extra 48 kHz SFX wavs |
+| A1 | `Bone::name`; `Skeleton::find(name)` → index or −1 | `Bone.h`, `GltfLoader.cpp` `extractSkeleton` |
+| A2 | `clip.loop` from `anim::clipTraits(name)` | `Animation.{h,cpp}`, `GltfLoader.cpp` `extractAnimations` |
+| A3 | `SkeletalClip::events`; `SceneNode::update` fires them with the same crossing logic as rigid clips (shared helper) | `Animation.h`, `SceneNode.cpp` |
+| A4 | `AttackAction` takes the skeletal hit time from `events` (id 1); drop the hard-coded 0.15 s | `Action.cpp` |
+| A5 | Pose hook: `SceneNode::setPoseModifier(fn(std::vector<Mat4>& perBoneLocal))`, called between `sampleSkeletal` and `computeBoneMatrices` | `SceneNode.{h,cpp}` |
+| A6 | Joints sorted parent-first on load (vertex joint indices + track indices remapped), so `computeBoneMatrices`' `assert(p < i)` can't fire on real exports | `GltfLoader.cpp` |
+| A7 | Skeletal foot-IK adapter (game side): per leg, model-space hip/knee/foot from rest + sampled pose → `solveTwoBone` → overwrite UpperLeg/LowerLeg local rotation via A5 | `src/game/FootIKRig.{h,cpp}` |
+
+**Scene:** HILL landscape (reuses battle heightmaps), rig on a 3×3 patch
+that spans a slope, plus one rigid cube with the existing `attackClip`.
+
+| Row | Observed condition |
+|---|---|
+| `rig loaded` | 15 bones, 4 clips, all 6 leg joints found by name (A1) |
+| `bind pose` | no clip → all skin matrices ≈ identity |
+| `loop flags` | `Idle`/`Walk` loop, `Attack`/`Hurt` don't (A2) |
+| `untracked at rest` | during `Idle`, `UpperArm.L` model pos == rest (0.22, 1.53, 0) ±1e-4 (B6) |
+| `idle wraps` | `Idle` time wraps ≥ 2× |
+| `one-shot ends` | `Attack` holds last frame, then lab returns rig to `Idle` |
+| `skeletal hit event` | `Attack` fires `kHit` once per play at 0.35 ± 1 frame (A3, A4) |
+| `event re-fires` | `kFootL` fires once per `Walk` cycle over 3 cycles |
+| `playback rate` | rate 0.5 → `Walk` period 2.0 s ±2 %; rate 2 → 0.5 s |
+| `walk during move` | `MoveAction` plays `Walk`, back to `Idle` at the end |
+| `foot IK on slope` | both feet' model y within 1 cm of `cellY` under them (A5, A7) |
+| `knee plane` | IK knee bends toward +Z (hint), not sideways |
+| `IK clamp` | unreachable target → `clamped`, leg straight |
+| `rigid event` | cube `attackClip` fires id 1 once (existing path) |
+
+Auto-drive: Idle 4 s → Attack ×2 → Walk 3 cycles → rate 0.5/2.0 →
+move across 3 cells → IK on → drag target out of reach.
+
+**Real character (later, P4):** a CC0 humanoid through a Blender pass
+(merge to one mesh/primitive, ≤48 joints, apply transforms, rename clips to
+the convention). The same AnimLab rows must pass with it swapped in; any
+failure is a loader gap to fix, not a checklist change.
 
 ### P3 — Data-driven BattleScene (integration)
 
@@ -138,6 +324,8 @@ longer loaded by the battle scene.
 
 ### P4 — Engine gaps (only after the labs show the need)
 
+- Real CC0 humanoid swapped in for `test_rig.glb`; AnimLab rows must still pass.
+- `solveTwoBone` for rigs whose rest legs are not straight down −Y.
 - glTF material + baseColor texture import (robot1 already carries JPEGs).
 - Sun/ambient **colour** in the FrameUBO (`SunState.sunColor`/`ambientColor`
   are computed and then dropped); `duskSky`, `milkyWayTint`.
@@ -148,12 +336,13 @@ longer loaded by the battle scene.
 
 ## 4. Assets needed
 
-| Asset | For | Source idea |
-|---|---|---|
-| Low-poly rigged humanoid `.glb`, ≤10K tris, clips idle/walk/attack/hurt, named leg bones | AnimLab, RenderLab, BattleScene units | CC0: Quaternius / Kenney character packs; or Mixamo → Blender export |
-| 2–3 prop `.glb` (tree, rock, crate) ≤2K tris | L1 props, shadow casters | Kenney nature/dungeon kits |
-| SFX wav 48 kHz mono: select, move, hit, miss, turn | F10 | jsfxr/sfxr |
-| Second music track | F11 per-scene music | any CC0 loop, 48 kHz |
+| Asset | For | Source | Status |
+|---|---|---|---|
+| `test_rig.glb` (15-joint box humanoid, Idle/Walk/Attack/Hurt) | AnimLab, RenderLab | `tools/gen_test_rig.py` (P2.5) | to write |
+| 48 kHz mono SFX: select, move, hit, miss, turn + `music2.wav` | SystemsLab, P3 | `tools/gen_sfx.py` (P2.4) | to write |
+| Real CC0 rigged humanoid ≤10K tris, ≤48 joints | P4 / battle units | Quaternius or Kenney pack via Blender | later |
+| 2–3 prop `.glb` (tree, rock, crate) ≤2K tris | RenderLab casters, P3 props | Kenney kits; `giant.glb` (485 tris) as stand-in | later |
+| Decimated robot1 (≤15K tris) | RenderLab heavy-mesh row | Blender decimate | optional |
 
 ## 5. Docs to fix alongside
 
@@ -167,6 +356,10 @@ longer loaded by the battle scene.
 
 ## 6. Suggested order
 
-P0 (1 session) → P1 Hub + DebugPanel + LabChecklist (1) → FxLab (smallest,
-verifies B1/B2/B5) → RenderLab → CameraLab → SystemsLab → P3 battle →
-AnimLab once a rigged asset is in hand → P4 as needed.
+1. P0 leftovers (items 2–5).
+2. FxLab (no engine changes; proves B1/B2/B5 on GPU).
+3. CameraLab (no engine changes).
+4. AnimLab: `gen_test_rig.py` → A1–A6 with selfTests → A7 → lab.
+5. RenderLab + R1 (reuses `test_rig.glb` as a skinned caster).
+6. SystemsLab + S1/S2.
+7. P3 battle, then P4 (real character, glTF materials, point lights).

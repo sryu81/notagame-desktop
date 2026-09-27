@@ -112,7 +112,7 @@ longer loaded by the battle scene.
 
 ### P2 — Labs
 
-Status: P2.1 FxLab, P2.2 CameraLab done; P2.3–P2.5 open.
+Status: P2.1 FxLab, P2.2 CameraLab, P2.3 RenderLab done; P2.4–P2.5 open.
 
 Every lab follows the same shape:
 
@@ -189,6 +189,17 @@ Scene: grid + 5 cubes at known cells as pick targets.
 
 #### P2.3 RenderLab — draw path
 
+Status: done 2026-09-26 — `src/game/RenderLab.{h,cpp}`, 9/9 green in a
+2.2 s auto-drive under ASan; R1 landed (`setShadowExtent`,
+`lightViewProjection()`, `shadowStats()`). Pixel-read rows: the depth probe
+reads a cube behind an occluder with `depthWrite` on (control, occluder
+colour) and off (cube colour); the texture row reads 9 pixels across the
+top face of a cube textured with `assets/checker.png`
+(`tools/gen_checker.py`) and needs ≥ 4 light/dark alternations
+(`android_robot.png` is flat green with an alpha mask, so it can't show
+sampling). `test_rig.glb` not used yet (P2.5). Heavy mesh: opt-in button;
+needs `robot1.glb` copied from `art/` into `assets/`.
+
 Scene: plane + textured cube + UV sphere + `unit_v2` skinned + `test_rig`
 (from P2.5 asset, optional) under a rotating sun.
 
@@ -198,13 +209,13 @@ Engine change **R1**: `Renderer::computeLightVP` centres the ortho box on
 
 | Row | Observed condition |
 |---|---|
-| `texture material` | cube drawn with `texMat` (`android_robot.png`), texture id ≠ 0 |
+| `texture material` | cube drawn with a `checker.png` material (texture id ≠ 0); ≥ 4 light/dark alternations in 9 pixels read across its top face |
 | `primitives` | cube 12 tris, sphere(1, 12, 24) tri count as expected |
 | `skinned draw` | `unit_v2` node has bone matrices, uploaded count == bones |
-| `cpu vs gpu skin` | `skinMesh` vertex 0 == bone[k]·bind vertex 0 (±1e-4) |
+| `cpu skin` | `skinMesh` output == Σ wᵢ·boneᵢ·bind for every vertex (±1e-4), and some vertex moved > 0.1 mm |
 | `shadow casters` | shadow pass draws > 0 nodes, incl. ≥1 skinned (B4) |
-| `shadow follows` | pan camera 20 cells → casters still in light frustum (R1) |
-| `depthWrite off` | a `depthWrite=false` quad does not occlude the cube behind |
+| `shadow follows` | camera target moved to x = 20 → that point is inside the light frustum and the origin is outside (R1) |
+| `depthWrite off` | pixel at a cube behind an occluder: occluder colour with `depthWrite` on (control), cube colour with it off |
 | `bounding sphere` | gizmo radius == `boundingSphereRadius()` |
 | `bone clamp` | 60-bone upload clamps to 48 (B8) |
 | `heavy mesh` (opt-in) | robot1 or decimated mesh loads; frame time logged |

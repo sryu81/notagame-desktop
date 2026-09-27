@@ -1,5 +1,6 @@
 #include "HubScene.h"
 
+#include "RenderLab.h"
 #include <GLES3/gl3.h>
 
 #include "BattleScene.h"
@@ -18,7 +19,7 @@ constexpr float kRowGap = 10.0f;
 std::vector<HubScene::Entry> HubScene::entries(game::GameState& gs) {
     game::GameState* g = &gs;
     return {
-        {"RENDER LAB", nullptr},
+        {"RENDER LAB", [g]() { return std::unique_ptr<Scene>(new RenderLab(*g)); }},
         {"ANIM LAB", nullptr},
         {"FX LAB", [g]() { return std::unique_ptr<Scene>(new FxLab(*g)); }},
         {"CAMERA LAB", [g]() { return std::unique_ptr<Scene>(new CameraLab(*g)); }},

@@ -126,6 +126,7 @@ void Renderer::render() {
             shadowPass(sr);
             shadowMapCleared_ = false;
         } else if (!shadowMapCleared_) {
+            shadowStats_ = {};
             glBindFramebuffer(GL_FRAMEBUFFER, shadowFbo_);
             glClear(GL_DEPTH_BUFFER_BIT);
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -514,18 +515,19 @@ void Renderer::initShadowMap() {
 }
 
 math::Mat4 Renderer::computeLightVP() const {
-    math::Vec3 target(0.0f, 0.0f, 0.0f);
+    const math::Vec3 target = camera_ ? camera_->target() : math::Vec3(0.0f, 0.0f, 0.0f);
     math::Vec3 lightDirNorm = lightDir_.normalized();
     math::Vec3 up(0.0f, 1.0f, 0.0f);
     if (std::abs(math::dot(lightDirNorm, up)) > 0.99f)
         up = math::Vec3(0.0f, 0.0f, 1.0f);
     math::Vec3 right = math::cross(up, lightDirNorm);
     up = math::cross(lightDirNorm, right);
-    float dist = 15.0f;
+    const float halfSize = shadowHalfSize_;
+    const float dist = halfSize * 1.25f;
     math::Vec3 eye = target + lightDirNorm * dist;
     math::Mat4 view = math::Mat4::lookAt(eye, target, up);
-    float halfSize = 12.0f;
-    math::Mat4 proj = math::Mat4::orthographic(-halfSize, halfSize, -halfSize, halfSize, 0.1f, 35.0f);
+    math::Mat4 proj = math::Mat4::orthographic(-halfSize, halfSize, -halfSize, halfSize,
+                                               0.1f, dist + halfSize * 1.7f);
     return proj * view;
 }
 
@@ -546,6 +548,8 @@ void Renderer::renderNodeShadow(const SceneNode* node) {
         }
         sh->setModelMatrix(world.m);
         d.model->draw();
+        ++shadowStats_.draws;
+        if (node->hasBoneMatrices()) ++shadowStats_.skinnedDraws;
     }
     for (const auto& child : node->children()) renderNodeShadow(child.get());
 }
@@ -559,6 +563,7 @@ void Renderer::shadowPass(const SceneNode* root) {
     glEnable(GL_POLYGON_OFFSET_FILL);
     glPolygonOffset(4.0f, 4.0f);
     currentShader_ = nullptr;
+    shadowStats_ = {};
     renderNodeShadow(root);
     currentShader_ = nullptr;
     glDisable(GL_POLYGON_OFFSET_FILL);

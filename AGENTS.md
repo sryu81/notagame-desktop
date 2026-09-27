@@ -46,6 +46,7 @@ src/desktop/main.cpp   GLFW window, GLES 3.0 ctx via EGL, input → Renderer, se
 assets/                same as notagame app/src/main/assets
 third_party/           stb_image.h (v2.30), miniaudio.h (v0.11.25)
 tools/gen_font.py      generates src/engine/FontData.h
+tools/gen_checker.py   generates assets/checker.png (RenderLab texture check)
 art/                   source art, not shipped (robot1.blend, robot1.glb)
 ```
 
@@ -54,7 +55,9 @@ Battle is split into `BattleData.h` (shared `battle::Data`),
 `BattleContent` (assets/level), `BattleRules` (paths, attacks, pick, save),
 `BattleInput` (taps), `BattleHUD` (DebugPanel menus), `BattleScene` (lifecycle).
 Labs: `FxLab` (particles/sky/weather, 12 checks), `CameraLab` (orbit/limits/
-ortho/forward/follow/pick/input, 11 checks). Each auto-drives its checklist.
+ortho/forward/follow/pick/input, 11 checks), `RenderLab` (texture, primitives,
+skinning, shadows, depthWrite, bounds, bone clamp, 9 checks + opt-in heavy
+mesh). Each auto-drives its checklist.
 Lab helpers: `DebugPanel` (row list), `LabChecklist` (green-on-pass rows),
 `LabAssets` (lit/skinned/unlit shaders + materials, plane/cube meshes).
 
@@ -105,6 +108,8 @@ Fixes made here that upstream lacks (keep this list current):
   freed `BattleGrid*`; any pan after leaving battle was a use-after-free).
 - Renderer clears the shadow map once when a scene has no shadow root
   (lit surfaces sampled an unwritten or previous scene's map).
+- Shadow ortho box centres on the camera target (was fixed at the origin);
+  `setShadowExtent`, `lightViewProjection()`, `shadowStats()` added.
 - Font: punctuation glyphs (`. : % = < > / ( ) , ? * ' _`) and lowercase →
   uppercase shapes. Regenerate with `python3 tools/gen_font.py > src/engine/FontData.h`
   (`tools/gen_font.py` is copied from upstream and extended).

@@ -89,6 +89,12 @@ public:
     void setFrameLight(const math::Vec3& dir, float ambient);
     void finish();
 
+    void setShadowExtent(float halfSize) { shadowHalfSize_ = halfSize; }
+    float shadowExtent() const { return shadowHalfSize_; }
+    const math::Mat4& lightViewProjection() const { return lightVP_; }
+    struct ShadowStats { int draws = 0; int skinnedDraws = 0; };
+    const ShadowStats& shadowStats() const { return shadowStats_; }
+
     const Platform& platform() const { return platform_; }
     std::string     dataPath() const { return platform_.dataPath(); }
 
@@ -149,6 +155,8 @@ private:
     std::unique_ptr<Shader> shadowShader_;
     std::unique_ptr<Shader> shadowSkinnedShader_;
     bool shadowMapCleared_ = false;
+    float shadowHalfSize_ = 12.0f;
+    ShadowStats shadowStats_;
     math::Mat4 lightVP_;
 
     void renderNode(const SceneNode* node);

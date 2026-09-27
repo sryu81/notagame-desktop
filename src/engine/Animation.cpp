@@ -2,7 +2,9 @@
 
 #include "AndroidOut.h"
 
+#include <algorithm>
 #include <cassert>
+#include <cctype>
 #include <cmath>
 
 namespace anim {
@@ -19,6 +21,49 @@ float wrapTime(const Clip &clip, float time) {
     if (time < 0.0f) return 0.0f;
     if (time > last) return last;
     return time;
+}
+
+float duration(const SkeletalClip &clip) {
+    float d = 0.0f;
+    for (const auto &trk : clip.tracks)
+        if (!trk.keyframes.empty()) d = std::max(d, trk.keyframes.back().time);
+    return d;
+}
+
+float wrapTime(const SkeletalClip &clip, float time) {
+    const float last = duration(clip);
+    if (last <= 0.0f) return 0.0f;
+    if (clip.loop) {
+        float t = std::fmod(time, last);
+        if (t < 0.0f) t += last;
+        return t;
+    }
+    return std::clamp(time, 0.0f, last);
+}
+
+bool isLoopClipName(const std::string &name) {
+    std::string n;
+    for (char c : name) n += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    auto endsWith = [&n](const char *s) {
+        const std::string suffix(s);
+        return n.size() >= suffix.size() && n.compare(n.size() - suffix.size(), suffix.size(), suffix) == 0;
+    };
+    if (endsWith("_once")) return false;
+    if (endsWith("_loop")) return true;
+    return n == "idle" || n == "walk" || n == "run";
+}
+
+void crossedEvents(const std::vector<AnimEvent> &events, float duration,
+                   float prevWrapped, float nowWrapped, std::vector<int> &outIds) {
+    for (const auto &ev : events) {
+        if (ev.time < 0.0f || ev.time > duration) continue;
+        bool crossed;
+        if (nowWrapped < prevWrapped)
+            crossed = (ev.time > prevWrapped || ev.time <= nowWrapped);
+        else
+            crossed = (ev.time > prevWrapped && ev.time <= nowWrapped);
+        if (crossed) outIds.push_back(ev.id);
+    }
 }
 
 static float wrapTimeSimple(const std::vector<Keyframe> &keyframes, float time, bool loop) {
@@ -281,6 +326,38 @@ void skeletalSelfTest() {
         assert(result.size() == 2);
         assert(math::approxEqual(result[0].m[12], 1.0f, 1e-5f));
         assert(math::approxEqual(result[1].m[13], 1.5f, 1e-5f));
+    }
+
+    {
+        assert(isLoopClipName("Idle") && isLoopClipName("walk") && isLoopClipName("RUN"));
+        assert(isLoopClipName("swim_loop") && !isLoopClipName("idle_once"));
+        assert(!isLoopClipName("Attack") && !isLoopClipName("Hurt") && !isLoopClipName(""));
+    }
+
+    {
+        SkeletalClip clip;
+        clip.tracks.push_back({0, {{0.0f, math::Vec3(0.0f), math::Quat::identity(), math::Vec3(1.0f)},
+                                   {0.8f, math::Vec3(0.0f), math::Quat::identity(), math::Vec3(1.0f)}}});
+        clip.tracks.push_back({1, {{0.0f, math::Vec3(0.0f), math::Quat::identity(), math::Vec3(1.0f)},
+                                   {1.2f, math::Vec3(0.0f), math::Quat::identity(), math::Vec3(1.0f)}}});
+        assert(math::approxEqual(duration(clip), 1.2f, 1e-6f));
+        clip.loop = true;
+        assert(math::approxEqual(wrapTime(clip, 1.5f), 0.3f, 1e-5f));
+        clip.loop = false;
+        assert(math::approxEqual(wrapTime(clip, 1.5f), 1.2f, 1e-6f));
+    }
+
+    {
+        const std::vector<AnimEvent> evs = {{0.0f, 2}, {0.5f, 3}};
+        std::vector<int> ids;
+        crossedEvents(evs, 1.0f, 0.4f, 0.6f, ids);
+        assert(ids.size() == 1 && ids[0] == 3);
+        ids.clear();
+        crossedEvents(evs, 1.0f, 0.9f, 0.05f, ids);
+        assert(ids.size() == 1 && ids[0] == 2);
+        ids.clear();
+        crossedEvents(evs, 1.0f, 0.6f, 0.6f, ids);
+        assert(ids.empty());
     }
 
     aout << "[skeletal] self-test PASS" << std::endl;

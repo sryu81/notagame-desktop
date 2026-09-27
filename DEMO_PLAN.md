@@ -112,7 +112,7 @@ longer loaded by the battle scene.
 
 ### P2 — Labs
 
-Status: P2.1–P2.4 done; P2.5 AnimLab open.
+Status: P2.1–P2.5 done (56 checks across 5 labs, all green in one ASan session).
 
 Every lab follows the same shape:
 
@@ -251,6 +251,29 @@ Engine/game changes **S1**: `GameState` and `EntityRegistry` derive from
 
 #### P2.5 AnimLab — clips, skeletal, events, IK
 
+Status: done 2026-09-26 — `src/game/AnimLab.{h,cpp}`, 14/14 green in a
+~19 s auto-drive under ASan; A1–A7 landed with host selfTests, plus
+`tools/gen_test_rig.py` → `assets/test_rig.glb` (31 KB) and
+`src/game/ClipEvents.{h,cpp}`. Changes from the spec below:
+- **A0 (found):** `engine::foot_ik::solveTwoBone` was wrong — it bent
+  around the target-perpendicular-to-hint vector (for a leg pointing
+  down with a +Z hint that is the Y axis, a no-op) and returned
+  `solvedFootPos = footTarget` unconditionally, so its selfTests were
+  tautological. Rewritten (aim + bend in the target/hint plane,
+  shortest-arc hip/knee rotations, FK foot position); selfTests now
+  rebuild the foot from the returned rotations.
+- **A8 (added):** `MoveAction::setWalkClip(clip, target)` swaps a
+  skeletal clip in for the move and restores it after (the rig lives on
+  a child node, rotated 180° because `MoveAction` assumes models face −Z).
+- `untracked at rest` checks the **local** transform of `UpperArm.L`
+  (recovered from the final bone matrices) — its model position moves
+  with `Spine` during Idle, so the model-space row below was wrong.
+- IK scene is a 14° ramp (`g = x·tan 14°`), not HILL (HILL's slope gives
+  ~3 cm between feet). `FootIKRig` also drops the hips so the downhill
+  foot is reachable. Feet are not re-oriented to the slope (only thigh
+  and shin are solved).
+- FOOT IK stays on after the auto-drive so the planted feet are visible.
+
 Decisions (2026-09-26): **procedural test rig first**, a real CC0 character
 later (P4); loop flags and events follow a **clip name convention**.
 
@@ -323,7 +346,7 @@ that spans a slope, plus one rigid cube with the existing `attackClip`.
 | `rig loaded` | 15 bones, 4 clips, all 6 leg joints found by name (A1) |
 | `bind pose` | no clip → all skin matrices ≈ identity |
 | `loop flags` | `Idle`/`Walk` loop, `Attack`/`Hurt` don't (A2) |
-| `untracked at rest` | during `Idle`, `UpperArm.L` model pos == rest (0.22, 1.53, 0) ±1e-4 (B6) |
+| `untracked at rest` | during `Idle` (while `Spine` moves), `UpperArm.L` local transform == rest (0.22, 0.28, 0) ±1e-4 (B6) |
 | `idle wraps` | `Idle` time wraps ≥ 2× |
 | `one-shot ends` | `Attack` holds last frame, then lab returns rig to `Idle` |
 | `skeletal hit event` | `Attack` fires `kHit` once per play at 0.35 ± 1 frame (A3, A4) |

@@ -2,6 +2,7 @@
 #define NOT_A_GAME_ANIMATION_H
 
 #include <functional>
+#include <string>
 #include <vector>
 
 #include "Bone.h"
@@ -38,8 +39,15 @@ struct BoneTrack {
 
 struct SkeletalClip {
     std::vector<BoneTrack> tracks;
+    std::vector<AnimEvent> events;
     bool loop = true;
 };
+
+float duration(const SkeletalClip &clip);
+float wrapTime(const SkeletalClip &clip, float time);
+bool isLoopClipName(const std::string &name);
+void crossedEvents(const std::vector<AnimEvent> &events, float duration,
+                   float prevWrapped, float nowWrapped, std::vector<int> &outIds);
 
 std::vector<math::Mat4> sampleSkeletal(const SkeletalClip &clip, float time, int boneCount);
 std::vector<math::Mat4> sampleSkeletal(const SkeletalClip &clip, float time, const Skeleton &skel);

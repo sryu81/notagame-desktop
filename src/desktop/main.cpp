@@ -20,6 +20,8 @@
 #include "game/DebugPanel.h"
 #include "game/GameState.h"
 #include "game/LabChecklist.h"
+#include "game/ClipEvents.h"
+#include "game/FootIKRig.h"
 
 namespace fs = std::filesystem;
 
@@ -203,6 +205,8 @@ int main(int argc, char** argv) {
     game::GameState::selfTest();
     game::DebugPanel::selfTest();
     game::LabChecklist::selfTest();
+    game::clipEventsSelfTest();
+    game::FootIKRig::selfTest();
 
     InputState inputState;
     glfwSetWindowUserPointer(window, &inputState);

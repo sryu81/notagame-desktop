@@ -33,7 +33,10 @@ public:
     void setLocal(const math::Mat4 &m);
     const math::Mat4 &local() const { return local_; }
 
-    void setClip(const anim::Clip *clip) { clip_ = clip; }
+    void setClip(const anim::Clip *clip) {
+        if (clip != clip_) prevEventTime_ = -1.0f;
+        clip_ = clip;
+    }
     const anim::Clip *clip() const { return clip_; }
     void setTime(float t) { time_ = t; }
     float time() const { return time_; }
@@ -46,7 +49,13 @@ public:
     void setSkeleton(const anim::Skeleton *s) { skeleton_ = s; }
     const anim::Skeleton *skeleton() const { return skeleton_; }
 
-    void setSkeletalClip(const anim::SkeletalClip *clip) { skeletalClip_ = clip; }
+    void setSkeletalClip(const anim::SkeletalClip *clip) {
+        if (clip != skeletalClip_) prevEventTime_ = -1.0f;
+        skeletalClip_ = clip;
+    }
+
+    using PoseModifier = std::function<void(std::vector<math::Mat4> &perBoneLocal)>;
+    void setPoseModifier(PoseModifier fn) { poseModifier_ = std::move(fn); }
     const anim::SkeletalClip *skeletalClip() const { return skeletalClip_; }
 
     const std::vector<math::Mat4> &boneMatrices() const { return boneMatrices_; }
@@ -96,6 +105,7 @@ private:
     std::vector<math::Mat4> boneMatrices_;
 
     AnimEventCallback animEventCb_;
+    PoseModifier poseModifier_;
     float prevEventTime_ = -1.0f;
     math::Vec3 animOffset_{0.0f};
     math::Quat animRotOffset_;

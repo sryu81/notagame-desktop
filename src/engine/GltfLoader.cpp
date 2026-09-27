@@ -157,6 +157,7 @@ static bool extractSkeleton(cgltf_data* data, anim::Skeleton& out) {
             std::memcpy(bone.invBindPose.m, m, sizeof(float) * 16);
         }
         cgltf_node_transform_local(skin->joints[j], bone.restLocal.m);
+        if (skin->joints[j]->name) bone.name = skin->joints[j]->name;
     }
     return true;
 }
@@ -229,7 +230,7 @@ static void extractAnimations(cgltf_data* data,
         }
 
         anim::SkeletalClip clip;
-        clip.loop = true;
+        clip.loop = anim::isLoopClipName(name);
         for (auto& [boneIdx, trs] : boneTracks) {
             std::set<float> timeSet;
             for (float t : trs.tTimes) timeSet.insert(t);
@@ -266,6 +267,48 @@ static void extractAnimations(cgltf_data* data,
 
 // ── public API ───────────────────────────────────────────────────────────
 
+bool sortJointsParentFirst(LoadResult& r) {
+    auto& bones = r.skeleton.bones;
+    const int n = static_cast<int>(bones.size());
+    bool sorted = true;
+    for (int i = 0; i < n; ++i)
+        if (bones[i].parent >= i) sorted = false;
+    if (sorted) return false;
+
+    std::vector<int> order;
+    std::vector<bool> placed(n, false);
+    order.reserve(n);
+    while (static_cast<int>(order.size()) < n) {
+        const size_t before = order.size();
+        for (int i = 0; i < n; ++i) {
+            if (placed[i]) continue;
+            const int p = bones[i].parent;
+            if (p < 0 || placed[p]) {
+                placed[i] = true;
+                order.push_back(i);
+            }
+        }
+        if (order.size() == before) return false;
+    }
+
+    std::vector<int> newIndex(n);
+    for (int k = 0; k < n; ++k) newIndex[order[k]] = k;
+
+    std::vector<anim::Bone> sortedBones(n);
+    for (int k = 0; k < n; ++k) {
+        sortedBones[k] = bones[order[k]];
+        if (sortedBones[k].parent >= 0) sortedBones[k].parent = newIndex[sortedBones[k].parent];
+    }
+    bones = std::move(sortedBones);
+    for (auto& idx : r.mesh.boneIndices)
+        for (auto& j : idx)
+            if (j < n) j = static_cast<uint8_t>(newIndex[j]);
+    for (auto& [name, clip] : r.clips)
+        for (auto& trk : clip.tracks)
+            if (trk.boneIndex >= 0 && trk.boneIndex < n) trk.boneIndex = newIndex[trk.boneIndex];
+    return true;
+}
+
 bool load(const uint8_t* bytes, size_t size, LoadResult& out) {
     if (!bytes || size == 0) return false;
 
@@ -284,6 +327,7 @@ bool load(const uint8_t* bytes, size_t size, LoadResult& out) {
     if (ok) {
         extractSkeleton(data, out.skeleton);
         extractAnimations(data, out.clips);
+        sortJointsParentFirst(out);
     }
     cgltf_free(data);
     return ok;
@@ -316,6 +360,27 @@ void selfTest() {
         std::memcpy(glb + 16, &jsonType, 4);
         std::memcpy(glb + 20, json,      28);
         assert(!load(glb, 48, r)); // valid parse, no mesh → false
+    }
+
+    {
+        LoadResult lr;
+        lr.skeleton.bones.resize(3);
+        lr.skeleton.bones[0].parent = 2; lr.skeleton.bones[0].name = "child";
+        lr.skeleton.bones[1].parent = 0; lr.skeleton.bones[1].name = "grandchild";
+        lr.skeleton.bones[2].parent = -1; lr.skeleton.bones[2].name = "root";
+        lr.mesh.boneIndices = {{0, 1, 2, 0}};
+        anim::SkeletalClip clip;
+        clip.tracks.push_back({1, {}});
+        lr.clips.push_back({"Idle", clip});
+        assert(sortJointsParentFirst(lr));
+        const auto& b = lr.skeleton.bones;
+        assert(b[0].name == "root" && b[1].name == "child" && b[2].name == "grandchild");
+        assert(b[0].parent == -1 && b[1].parent == 0 && b[2].parent == 1);
+        assert(lr.mesh.boneIndices[0][0] == 1 && lr.mesh.boneIndices[0][1] == 2 &&
+               lr.mesh.boneIndices[0][2] == 0);
+        assert(lr.clips[0].second.tracks[0].boneIndex == 2);
+        assert(lr.skeleton.find("grandchild") == 2 && lr.skeleton.find("nope") == -1);
+        assert(!sortJointsParentFirst(lr));
     }
 
     aout << "[gltf] self-test PASS" << std::endl;

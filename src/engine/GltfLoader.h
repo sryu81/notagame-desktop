@@ -21,6 +21,8 @@ struct LoadResult {
 
 bool load(const uint8_t* bytes, size_t size, LoadResult& out);
 
+bool sortJointsParentFirst(LoadResult& r);
+
 void selfTest();
 
 } // namespace gltf

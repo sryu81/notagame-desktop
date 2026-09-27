@@ -48,6 +48,7 @@ third_party/           stb_image.h (v2.30), miniaudio.h (v0.11.25)
 tools/gen_font.py      generates src/engine/FontData.h
 tools/gen_checker.py   generates assets/checker.png (RenderLab texture check)
 tools/gen_sfx.py       generates select/move/hit/miss/turn/music2.wav (48 kHz mono)
+tools/gen_test_rig.py  generates assets/test_rig.glb (15-joint box humanoid)
 art/                   source art, not shipped (robot1.blend, robot1.glb)
 ```
 
@@ -59,8 +60,10 @@ Labs: `FxLab` (particles/sky/weather, 12 checks), `CameraLab` (orbit/limits/
 ortho/forward/follow/pick/input, 11 checks), `RenderLab` (texture, primitives,
 skinning, shadows, depthWrite, bounds, bone clamp, 9 checks + opt-in heavy
 mesh), `SystemsLab` (save slots, Saveable, Bag/Equip/Catalog, custom
-calendar, SFX voices, music switch, volume buses, 10 checks). Each
-auto-drives its checklist.
+calendar, SFX voices, music switch, volume buses, 10 checks), `AnimLab`
+(test rig clips, loop flags, B6, events, playback rate, walk during move,
+foot IK on a ramp, 14 checks). Each auto-drives its checklist; game helpers
+`ClipEvents` (events by clip name) and `FootIKRig` (skinned foot IK).
 Lab helpers: `DebugPanel` (row list), `LabChecklist` (green-on-pass rows),
 `LabAssets` (lit/skinned/unlit shaders + materials, plane/cube meshes).
 
@@ -112,6 +115,18 @@ Fixes made here that upstream lacks (keep this list current):
 - Renderer clears the shadow map once when a scene has no shadow root
   (lit surfaces sampled an unwritten or previous scene's map).
 - `GameState` and `EntityRegistry` derive from `engine::Saveable`.
+- `engine::foot_ik::solveTwoBone` rewritten: it bent around the wrong axis
+  (a no-op for a straight leg) and echoed the target as `solvedFootPos`;
+  selfTests now check forward kinematics.
+- glTF loader: joint names (`Bone::name`, `Skeleton::find`), clip loop flag
+  from the name (`anim::isLoopClipName`), joints sorted parent-first with
+  vertex/track indices remapped (`gltf::sortJointsParentFirst`).
+- Skeletal clips carry `events` and fire them like rigid clips
+  (`anim::crossedEvents`); `AttackAction` takes the skeletal hit time from
+  event id 1 (hard-coded 0.15 s removed; battle's code-built clip got the
+  event). Event tracking resets when a node's clip changes.
+- `SceneNode::setPoseModifier` (between sampling and bone matrices);
+  `MoveAction::setWalkClip`.
 - Shadow ortho box centres on the camera target (was fixed at the origin);
   `setShadowExtent`, `lightViewProjection()`, `shadowStats()` added.
 - Font: punctuation glyphs (`. : % = < > / ( ) , ? * ' _`) and lowercase →
@@ -135,4 +150,4 @@ Verified: 47 selfTests PASS; title + battle render at 60 FPS on Mesa radeonsi
 (GLES 3.2); PulseAudio via miniaudio; level + 3 .glb load.
 
 Done: P0 B1–B8, P1 (hub, DebugPanel, LabChecklist, battle split, LabAssets).
-Next: P2.5 AnimLab (DEMO_PLAN §6 order: rig generator, A1–A7, lab).
+Next: P3 data-driven BattleScene (DEMO_PLAN §3), using test_rig.glb units.

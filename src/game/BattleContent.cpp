@@ -45,6 +45,7 @@ void createClips() {
         {0.5f,  math::Vec3(0.0f), math::Quat::identity(), math::Vec3(1.0f)}}});
     d().skinnedAttackClip.tracks.push_back({1, {
         {0.0f,  math::Vec3(0.0f), math::Quat::identity(), math::Vec3(1.0f)}}});
+    d().skinnedAttackClip.events.push_back({0.15f, 1});
 
     d().skinnedHitReaction.loop = false;
     d().skinnedHitReaction.tracks.push_back({0, {

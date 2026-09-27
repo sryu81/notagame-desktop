@@ -37,6 +37,11 @@ void MoveAction::start() {
     savedClip_ = node->clip();
     originalClipTranslation_ = (savedClip_ && !savedClip_->keyframes.empty())
         ? savedClip_->keyframes[0].translation : math::Vec3(0.0f);
+    if (walkClip_) {
+        SceneNode* wt = walkTarget_ ? walkTarget_ : node;
+        savedWalkSlot_ = wt->skeletalClip();
+        wt->setSkeletalClip(walkClip_);
+    }
 
     const math::Vec3 world = grid_->cellToWorld(static_cast<int>(path_.front().x),
                                                   static_cast<int>(path_.front().y));
@@ -169,6 +174,7 @@ void MoveAction::onComplete() {
 
     const math::Vec3 finalPos(endPos_.x, endPos_.y - hoverY_, endPos_.z);
     node->setAnimRotOffset(toRot_);
+    if (walkClip_) (walkTarget_ ? walkTarget_ : node)->setSkeletalClip(savedWalkSlot_);
 
     if (savedClip_ != nullptr && !savedClip_->keyframes.empty()) {
         math::Vec3 offset = finalPos - originalClipTranslation_;
@@ -219,7 +225,8 @@ AttackAction::AttackAction(game::Unit *attacker, game::Unit *target,
         for (const auto& ev : attackClip_->events)
             if (ev.id == 1) { hitTime_ = ev.time; break; }
     } else if (skeletalAttackClip_) {
-        hitTime_ = 0.15f;
+        for (const auto& ev : skeletalAttackClip_->events)
+            if (ev.id == 1) { hitTime_ = ev.time; break; }
     }
     if (hitTime_ < 0.0f) hitTime_ = delay_;
 }
@@ -528,6 +535,43 @@ void Manager::selfTest() {
         assert(mgr.isIdle());
         assert(b.hp() == 7);
         assert(hits == 1);
+    }
+
+    {
+        SceneNode parent;
+        game::Unit a(&parent, unit::Faction::Player, unit::Stats{10, 5, 3, 4});
+        game::Unit b(&parent, unit::Faction::Enemy, unit::Stats{10, 2, 0, 3});
+        anim::SkeletalClip atk;
+        atk.loop = false;
+        atk.tracks.push_back({0, {{0.0f, math::Vec3(0.0f), math::Quat::identity(), math::Vec3(1.0f)},
+                                  {0.6f, math::Vec3(0.0f), math::Quat::identity(), math::Vec3(1.0f)}}});
+        atk.events.push_back({0.25f, 1});
+        Manager mgr;
+        mgr.enqueue(std::make_unique<AttackAction>(&a, &b, 3, nullptr, nullptr, &atk));
+        mgr.update(0.1f);
+        mgr.update(0.1f);
+        assert(b.hp() == 10);
+        mgr.update(0.1f);
+        assert(b.hp() == 7);
+    }
+
+    {
+        grid::BattleGrid g(4, 4, 1.0f);
+        SceneNode parent;
+        game::Unit u(&parent, unit::Faction::Player, unit::Stats{10, 5, 3, 4});
+        SceneNode* rig = u.node()->addChild();
+        anim::SkeletalClip idle, walk;
+        rig->setSkeletalClip(&idle);
+        Manager mgr;
+        auto mv = std::make_unique<MoveAction>(&u, &g, std::vector<math::Vec2>{{0, 0}, {1, 0}}, 0.2f);
+        mv->setWalkClip(&walk, rig);
+        mgr.enqueue(std::move(mv));
+        mgr.update(0.05f);
+        assert(rig->skeletalClip() == &walk);
+        for (int i = 0; i < 10; ++i) mgr.update(0.05f);
+        assert(mgr.isIdle());
+        assert(rig->skeletalClip() == &idle);
+        assert(u.cell().x == 1);
     }
 
     aout << "[action] self-test PASS" << std::endl;

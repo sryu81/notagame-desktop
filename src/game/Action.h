@@ -60,6 +60,11 @@ public:
     }
     const char *name() const override { return "Move"; }
 
+    void setWalkClip(const anim::SkeletalClip* walk, SceneNode* target = nullptr) {
+        walkClip_ = walk;
+        walkTarget_ = target;
+    }
+
 private:
     struct RigPose {
         SceneNode* hipL  = nullptr;
@@ -85,6 +90,9 @@ private:
     int currentSegment_ = 0;
     float segmentElapsed_ = 0.0f;
     const anim::Clip *savedClip_ = nullptr;
+    const anim::SkeletalClip* walkClip_ = nullptr;
+    SceneNode* walkTarget_ = nullptr;
+    const anim::SkeletalClip* savedWalkSlot_ = nullptr;
     math::Vec3 originalClipTranslation_{0.0f};
     math::Vec3 endPos_{};
 

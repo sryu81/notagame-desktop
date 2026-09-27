@@ -16,14 +16,18 @@ math::Vec3 safeNormalize(const math::Vec3& v, const math::Vec3& fallback) {
     return v / len;
 }
 
-math::Mat4 rotationAroundPoint(const math::Mat4& rot, const math::Vec3& pivot) {
-    math::Mat4 t  = math::Mat4::identity();
-    math::Mat4 tInv = math::Mat4::identity();
-    t.m[12] = pivot.x;  t.m[13] = pivot.y;  t.m[14] = pivot.z;
-    tInv.m[12] = -pivot.x;  tInv.m[13] = -pivot.y;  tInv.m[14] = -pivot.z;
-    return t * rot * tInv;
+math::Quat fromTo(const math::Vec3& a, const math::Vec3& b) {
+    const float c = math::dot(a, b);
+    if (c < -0.99999f) {
+        math::Vec3 axis = math::cross(a, math::Vec3(1, 0, 0));
+        if (axis.length() < 1e-4f) axis = math::cross(a, math::Vec3(0, 0, 1));
+        return math::Quat::fromAxisAngle(axis.normalized(), math::PI);
+    }
+    const math::Vec3 x = math::cross(a, b);
+    math::Quat q{x.x, x.y, x.z, 1.0f + c};
+    const float len = std::sqrt(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);
+    return math::Quat{q.x / len, q.y / len, q.z / len, q.w / len};
 }
-
 }
 
 TwoBoneResult solveTwoBone(
@@ -58,82 +62,82 @@ TwoBoneResult solveTwoBone(
     if (d < minReach) { d = minReach; r.clamped = true; }
     r.reachable = !r.clamped;
 
-    const math::Vec3 hintN = safeNormalize(hintDir, math::Vec3(1, 0, 0));
-    math::Vec3 perp = toTargetN - hintN * math::dot(toTargetN, hintN);
-    if (perp.length() < 1e-4f) {
-        perp = math::cross(toTargetN, math::Vec3(0, 1, 0));
-        if (perp.length() < 1e-4f) perp = math::cross(toTargetN, math::Vec3(0, 0, 1));
+    const math::Vec3 restDir(0, -1, 0);
+    math::Vec3 hintN = safeNormalize(hintDir, math::Vec3(0, 0, 1));
+    math::Vec3 planeN = math::cross(toTargetN, hintN);
+    if (planeN.length() < 1e-4f) {
+        planeN = math::cross(toTargetN, math::Vec3(0, 0, 1));
+        if (planeN.length() < 1e-4f) planeN = math::cross(toTargetN, math::Vec3(1, 0, 0));
     }
-    const math::Vec3 bendAxis = perp.normalized();
+    planeN = planeN.normalized();
 
-    const math::Vec3 restLowerDir = math::Vec3(0, -1, 0);
     const float cosAlpha = std::max(-1.0f, std::min(1.0f,
         (upperLen * upperLen + d * d - lowerLen * lowerLen) / (2.0f * upperLen * d)));
     const float alpha = std::acos(cosAlpha);
+    const math::Vec3 upperDir = math::Mat4::rotation(math::Quat::fromAxisAngle(planeN, alpha))
+                                    .transformDirection(toTargetN).normalized();
+    const math::Vec3 knee = hipPos + upperDir * upperLen;
+    const math::Vec3 clampedTarget = hipPos + toTargetN * d;
+    const math::Vec3 lowerDir = safeNormalize(clampedTarget - knee, restDir);
 
-    const math::Mat4 hipRot = math::Mat4::rotation(
-        math::Quat::fromAxisAngle(bendAxis, alpha));
-    const math::Mat4 hipRotWorld = rotationAroundPoint(hipRot, hipPos);
-    const math::Vec4 knee4 = hipRotWorld * math::Vec4(hipPos.x, hipPos.y - upperLen, hipPos.z, 1.0f);
-    const math::Vec3 newKnee(knee4.x, knee4.y, knee4.z);
-
-    const math::Vec3 newFootDir = safeNormalize(footTarget - newKnee, math::Vec3(0, -1, 0));
-    const math::Quat kneeRot = math::Quat::fromAxisAngle(bendAxis, std::acos(std::max(-1.0f, std::min(1.0f,
-        math::dot(newFootDir, restLowerDir)))));
-
-    r.hipRotation    = math::Quat::fromAxisAngle(bendAxis, alpha);
-    r.kneeRotation   = kneeRot;
-    if (r.clamped) r.solvedFootPos = hipPos + toTargetN * d;
-    else           r.solvedFootPos = footTarget;
+    r.hipRotation = fromTo(restDir, upperDir);
+    const math::Vec3 lowerInHip = math::Mat4::rotation(r.hipRotation.inverse())
+                                      .transformDirection(lowerDir).normalized();
+    r.kneeRotation = fromTo(restDir, lowerInHip);
+    r.solvedFootPos = knee + lowerDir * lowerLen;
     return r;
+}
+
+namespace {
+
+math::Vec3 forwardFoot(const math::Vec3& hip, float l1, float l2, const TwoBoneResult& r, math::Vec3* kneeOut) {
+    const math::Mat4 hipR = math::Mat4::rotation(r.hipRotation);
+    const math::Mat4 kneeR = hipR * math::Mat4::rotation(r.kneeRotation);
+    const math::Vec3 knee = hip + hipR.transformDirection(math::Vec3(0, -l1, 0));
+    if (kneeOut) *kneeOut = knee;
+    return knee + kneeR.transformDirection(math::Vec3(0, -l2, 0));
+}
+
 }
 
 void selfTest() {
     aout << "[foot_ik] self-test starting" << std::endl;
 
-    {
-        const TwoBoneResult r = solveTwoBone(
-            math::Vec3(0, 1, 0), 0.5f, 0.5f,
-            math::Vec3(0, 0.5f, 0), math::Vec3(0, 0, 1));
-        assert(r.reachable);
-        assert((r.solvedFootPos - math::Vec3(0, 0.5f, 0)).length() < 1e-3f);
+    const math::Vec3 hip(0, 1, 0);
+    const math::Vec3 targets[] = {
+        {0, 0.5f, 0}, {0.2f, 0.5f, 0}, {0, 0.5f, 0.3f}, {0, 0.5f, -0.3f}, {0.1f, 0.3f, 0.2f},
+    };
+    for (const auto& t : targets) {
+        const TwoBoneResult r = solveTwoBone(hip, 0.5f, 0.5f, t, math::Vec3(0, 0, 1));
+        assert(r.reachable && !r.clamped);
+        math::Vec3 knee;
+        const math::Vec3 foot = forwardFoot(hip, 0.5f, 0.5f, r, &knee);
+        assert((foot - t).length() < 1e-3f);
+        assert((r.solvedFootPos - t).length() < 1e-3f);
+        assert(std::abs((knee - hip).length() - 0.5f) < 1e-4f);
     }
 
     {
-        const TwoBoneResult r = solveTwoBone(
-            math::Vec3(0, 1, 0), 0.5f, 0.5f,
-            math::Vec3(0.2f, 0.5f, 0), math::Vec3(0, 0, 1));
-        assert(r.reachable);
-        assert((r.solvedFootPos - math::Vec3(0.2f, 0.5f, 0)).length() < 1e-3f);
+        const TwoBoneResult r = solveTwoBone(hip, 0.5f, 0.5f, math::Vec3(0, 0.4f, 0), math::Vec3(0, 0, 1));
+        math::Vec3 knee;
+        forwardFoot(hip, 0.5f, 0.5f, r, &knee);
+        assert(knee.z > 0.1f);
+        const TwoBoneResult b = solveTwoBone(hip, 0.5f, 0.5f, math::Vec3(0, 0.4f, 0), math::Vec3(0, 0, -1));
+        forwardFoot(hip, 0.5f, 0.5f, b, &knee);
+        assert(knee.z < -0.1f);
     }
 
     {
-        const TwoBoneResult r = solveTwoBone(
-            math::Vec3(0, 1, 0), 0.5f, 0.5f,
-            math::Vec3(10.0f, 0, 0), math::Vec3(0, 0, 1));
-        assert(r.clamped);
-        assert(!r.reachable);
-        assert((r.solvedFootPos - math::Vec3(0, 1, 0)).length() <= 1.0f + 1e-3f);
+        const TwoBoneResult r = solveTwoBone(hip, 0.5f, 0.5f, math::Vec3(10.0f, 0, 0), math::Vec3(0, 0, 1));
+        assert(r.clamped && !r.reachable);
+        const math::Vec3 foot = forwardFoot(hip, 0.5f, 0.5f, r, nullptr);
+        assert(std::abs((foot - hip).length() - (1.0f - 1e-3f)) < 1e-3f);
+        assert(math::dot((foot - hip).normalized(), (math::Vec3(10.0f, 0, 0) - hip).normalized()) > 0.9999f);
+        assert((r.solvedFootPos - foot).length() < 1e-3f);
     }
 
     {
-        const TwoBoneResult a = solveTwoBone(
-            math::Vec3(0, 1, 0), 0.5f, 0.5f,
-            math::Vec3(0, 0.5f, 0.3f), math::Vec3(0, 1, 0));
-        const TwoBoneResult b = solveTwoBone(
-            math::Vec3(0, 1, 0), 0.5f, 0.5f,
-            math::Vec3(0, 0.5f, -0.3f), math::Vec3(0, 1, 0));
-        assert(a.reachable);
-        assert(b.reachable);
-        assert(std::abs(a.hipRotation.y + b.hipRotation.y) < 1e-3f);
-        assert(std::abs(a.hipRotation.x) < 1e-3f);
-        assert(std::abs(b.hipRotation.x) < 1e-3f);
-    }
-
-    {
-        const TwoBoneResult r = solveTwoBone(
-            math::Vec3(0, 1, 0), 0.5f, 0.5f,
-            math::Vec3(0, 1, 0), math::Vec3(0, 0, 1));
+        const TwoBoneResult r = solveTwoBone(hip, 0.5f, 0.5f, hip, math::Vec3(0, 0, 1));
         assert(!r.reachable);
     }
 

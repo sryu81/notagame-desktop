@@ -49,29 +49,30 @@ void SceneNode::update(float dt) {
         }
         if (hasSkeletal) {
             auto perBoneLocal = anim::sampleSkeletal(*skeletalClip_, time_, *skeleton_);
+            if (poseModifier_) poseModifier_(perBoneLocal);
             boneMatrices_ = anim::computeBoneMatrices(*skeleton_, perBoneLocal);
         }
     }
 
-    if (hasClip && animEventCb_ && !clip_->events.empty()) {
-        const float dur = clip_->keyframes.back().time;
-        if (dur > 0.0f) {
-            const float nowW = anim::wrapTime(*clip_, time_);
-            if (prevEventTime_ < 0.0f) {
-                prevEventTime_ = nowW;
-            } else {
-                const float prevW = prevEventTime_;
-                for (const auto &ev : clip_->events) {
-                    if (ev.time < 0.0f || ev.time > dur) continue;
-                    bool crossed;
-                    if (nowW < prevW)
-                        crossed = (ev.time > prevW || ev.time <= nowW);
-                    else
-                        crossed = (ev.time > prevW && ev.time <= nowW);
-                    if (crossed) animEventCb_(ev.id);
-                }
-                prevEventTime_ = nowW;
-            }
+    const std::vector<anim::AnimEvent> *events = nullptr;
+    float dur = 0.0f, nowW = 0.0f;
+    if (hasClip && !clip_->events.empty()) {
+        events = &clip_->events;
+        dur = clip_->keyframes.back().time;
+        nowW = anim::wrapTime(*clip_, time_);
+    } else if (hasSkeletal && !skeletalClip_->events.empty()) {
+        events = &skeletalClip_->events;
+        dur = anim::duration(*skeletalClip_);
+        nowW = anim::wrapTime(*skeletalClip_, time_);
+    }
+    if (events && animEventCb_ && dur > 0.0f) {
+        if (prevEventTime_ < 0.0f) {
+            prevEventTime_ = nowW;
+        } else {
+            std::vector<int> fired;
+            anim::crossedEvents(*events, dur, prevEventTime_, nowW, fired);
+            prevEventTime_ = nowW;
+            for (int id : fired) animEventCb_(id);
         }
     }
 
@@ -291,6 +292,31 @@ void SceneNode::selfTest() {
         assert(count == 1);
         node.update(0.8f); // t=1.9→wrap to 0.9, crosses 0.8 → fire again
         assert(count == 2);
+    }
+
+    {
+        anim::Skeleton skel;
+        skel.bones.push_back({-1, math::Mat4::identity()});
+        anim::SkeletalClip clip;
+        clip.loop = true;
+        clip.tracks.push_back({0, {{0.0f, math::Vec3(0.0f), math::Quat::identity(), math::Vec3(1.0f)},
+                                   {1.0f, math::Vec3(0.0f), math::Quat::identity(), math::Vec3(1.0f)}}});
+        clip.events.push_back({0.5f, 7});
+        SceneNode node;
+        node.setSkeleton(&skel);
+        node.setSkeletalClip(&clip);
+        int fired = 0;
+        node.setAnimEventCallback([&fired](int id) { if (id == 7) ++fired; });
+        node.setPoseModifier([](std::vector<math::Mat4>& local) {
+            local[0] = math::Mat4::translation(math::Vec3(5.0f, 0.0f, 0.0f));
+        });
+        for (int i = 0; i < 25; ++i) node.update(0.1f);
+        assert(fired == 2);
+        assert(math::approxEqual(node.boneMatrices()[0].m[12], 5.0f, 1e-5f));
+        anim::SkeletalClip other = clip;
+        node.setSkeletalClip(&other);
+        node.update(0.1f);
+        assert(fired == 2);
     }
 
     aout << "[scene] self-test PASS" << std::endl;

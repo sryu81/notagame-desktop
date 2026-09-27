@@ -3,6 +3,7 @@
 #include "AndroidOut.h"
 
 #include <cassert>
+#include <cmath>
 #include <cstdlib>
 
 namespace engine {
@@ -40,7 +41,12 @@ bool updateLightning(LightningState& s, float dt, float& outFlash) {
 }
 
 math::Vec3 rainSpawnPos(const math::Vec3& cameraPos) {
-    return cameraPos;
+    const float angle  = static_cast<float>(rand() % 1000) / 1000.0f * 6.2832f;
+    const float radius = static_cast<float>(rand() % 1000) / 1000.0f * 8.0f;
+    return math::Vec3(
+        cameraPos.x + radius * cosf(angle),
+        cameraPos.y + 6.0f,
+        cameraPos.z + radius * sinf(angle));
 }
 
 void selfTest() {

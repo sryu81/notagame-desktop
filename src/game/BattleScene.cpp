@@ -109,6 +109,8 @@ struct Data {
     std::string savePath;
 
     particle::Emitter particleEmitter;
+    particle::Emitter rainEmitter{1024};
+    float rainAccum  = 0.0f;
     float burstTimer = 0.0f;
 
     std::unique_ptr<SceneNode> pathOverlay;
@@ -1459,13 +1461,6 @@ void createContent(Renderer& r, game::GameState& gs) {
                     math::Vec3(0.76f, 0.70f, 0.50f), math::Vec3(0.30f, 0.30f, 0.30f),
                     d().litMat);
 
-    // A1: apply texture material to tile (5,5) — exercises uHasTexture branch in lit.frag
-    if (d().texMat) {
-        const size_t texTileIdx = 5u * static_cast<size_t>(terrainW) + 5u;
-        if (texTileIdx < d().tileNodes.size() && !d().tileNodes[texTileIdx]->drawables().empty())
-            d().tileNodes[texTileIdx]->drawables().front().material = d().texMat;
-    }
-
     // Shadow root for all unit shadows
     d().shadowRoot_ = std::make_unique<SceneNode>();
     d().registry = std::make_unique<game::EntityRegistry>();
@@ -1492,71 +1487,9 @@ void createContent(Renderer& r, game::GameState& gs) {
         d().unitCatalog.registerDef("goblin", gd);
     }
 
-    // Spawn 3 units from catalog with visual/placement overrides
     {
         game::EntityBuilder eb(d().root.get(), d().grid.get(), d().shadowRoot_.get(),
                                &d().unitClips);
-
-        // Shared rig overrides (cube pivot boxes)
-        game::SpawnDef rigOv;
-        rigOv.useRig    = true;
-        rigOv.rootDropY = 0.5f;
-        rigOv.mesh      = d().cubeMesh;
-        rigOv.model     = d().cubeModel;
-        rigOv.material  = d().texMat;
-
-        {
-            game::SpawnDef ov = rigOv;
-            ov.clipTemplate = &d().animeClipTemplate;
-            ov.cellX = 2; ov.cellY = 2;
-            game::Unit* knightUnit = eb.spawnFromCatalog(d().unitCatalog, "knight", ov);
-            if (knightUnit && knightUnit->node() && d().robotMesh) {
-                const math::Vec3 col = d().unitCatalog.find("knight")->baseColor;
-                knightUnit->node()->clearChildren();
-                auto vis = std::make_unique<SceneNode>();
-                vis->setLocal(math::Mat4::rotationY(math::PI));
-                vis->addDrawable({d().robotMesh, d().robotModel, col, d().litMat});
-                knightUnit->node()->addChild(std::move(vis));
-            }
-        }
-
-        {
-            game::SpawnDef ov = rigOv;
-            ov.material     = d().litMat;
-            ov.clipTemplate = &d().allyBobClipTemplate;
-            ov.cellX = 2; ov.cellY = 3;
-            game::Unit* mageUnit = eb.spawnFromCatalog(d().unitCatalog, "mage", ov);
-            if (mageUnit && mageUnit->node() && d().robotMesh) {
-                const math::Vec3 col = d().unitCatalog.find("mage")->baseColor;
-                mageUnit->node()->clearChildren();
-                auto vis = std::make_unique<SceneNode>();
-                vis->setLocal(math::Mat4::rotationY(math::PI));
-                vis->addDrawable({d().robotMesh, d().robotModel, col, d().litMat});
-                mageUnit->node()->addChild(std::move(vis));
-            }
-        }
-
-        {
-            game::SpawnDef ov = rigOv;
-            ov.clipTemplate = &d().enemyBobClipTemplate;
-            ov.cellX = 7; ov.cellY = 5;
-            game::Unit* goblinUnit = eb.spawnFromCatalog(d().unitCatalog, "goblin", ov);
-            if (goblinUnit && goblinUnit->node()) {
-                goblinUnit->node()->clearChildren();
-                // A2: skeleton from unit_v2.glb on root — drives bone matrices + skinnedAttackClip routing
-                if (!d().skinnedSkeleton.bones.empty()) {
-                    goblinUnit->node()->setSkeleton(&d().skinnedSkeleton);
-                    goblinUnit->node()->setSkeletalClip(&d().skinnedClip);
-                }
-                if (d().robotMesh) {
-                    const math::Vec3 col = d().unitCatalog.find("goblin")->baseColor;
-                    auto vis = std::make_unique<SceneNode>();
-                    vis->setLocal(math::Mat4::rotationY(math::PI));
-                    vis->addDrawable({d().robotMesh, d().robotModel, col, d().litMat});
-                    goblinUnit->node()->addChild(std::move(vis));
-                }
-            }
-        }
 
         eb.populate(*d().registry);
 
@@ -1612,6 +1545,16 @@ void BattleScene::enter(Renderer& r) {
     createContent(r, gs_);
     r.setPickRoot(d().root.get());
     d().burstTimer = 5.0f;
+    {
+        particle::Emitter::Config rc;
+        rc.gravity            = math::Vec3(0.0f, -8.0f, 0.0f);
+        rc.upVelocityMult     = 0.0f;
+        rc.sizeJitter         = 0.0f;
+        rc.lifetimeJitterMin  = 0.6f;
+        rc.lifetimeJitterRange = 0.4f;
+        rc.sizeShrinkFactor   = 0.0f;
+        d().rainEmitter.setConfig(rc);
+    }
     d().palettes = game::defaultPalettes();
     d().clock.setDateTime(1, 1, 1, 6, 0, 0);
     d().clock.setTimeScale(1.0f);
@@ -1974,6 +1917,28 @@ void BattleScene::update(float dt, Renderer& r) {
 
     d().particleEmitter.update(userDt);
 
+    // X3: rain particles — emit continuously when Rain/Storm
+    {
+        const engine::wx::Weather wx = d().climate.current;
+        if (wx == engine::wx::Weather::Rain || wx == engine::wx::Weather::Storm) {
+            const float rate = (wx == engine::wx::Weather::Storm) ? 120.0f : 60.0f;
+            d().rainAccum += rate * userDt;
+            const int count = static_cast<int>(d().rainAccum);
+            d().rainAccum -= static_cast<float>(count);
+            const math::Vec3 camPos = r.camera().eye();
+            const math::Vec4 rainColor(0.5f, 0.75f, 1.0f, 0.5f);
+            for (int i = 0; i < count; ++i) {
+                const math::Vec3 pos = engine::wx::rainSpawnPos(camPos);
+                d().rainEmitter.emit(pos, math::Vec3(0.0f, -5.0f, 0.0f),
+                                     rainColor, 0.04f, 1.0f);
+            }
+        } else {
+            d().rainEmitter.clear();
+            d().rainAccum = 0.0f;
+        }
+        d().rainEmitter.update(userDt);
+    }
+
     {
         for (size_t i = 0; i < d().registry->size(); ++i) {
             SceneNode* sn = d().registry->shadowAt(i);
@@ -2044,6 +2009,7 @@ void BattleScene::render(Renderer& r) {
     if (d().pathOverlay) r.renderSceneGraph(d().pathOverlay.get());
     if (d().selectionIndicator) r.renderSceneGraph(d().selectionIndicator.get());
     r.renderParticles(d().particleEmitter);
+    r.renderParticles(d().rainEmitter);
     r.renderStars(d().stars, d().currentSun.starIntensity, d().climate.dayPhase());
     if (d().climate.current == engine::wx::Weather::Storm) {
         const engine::sky::WeatherPalette& wp = d().palettes.weather;

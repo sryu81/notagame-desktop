@@ -60,13 +60,37 @@ Keep one **data-driven battle scene** as the integration test.
 - The three-plus scenes also cover F3 (scene lifecycle) and F11 (music per
   scene).
 
+**Lab first (added 2026-09-26):** every feature or game-design technique
+the battle needs is proven in a lab before it reaches `BattleScene`:
+
+1. **Prototype** in a lab on a tiny hand-built setup, knobs in a DebugPanel.
+2. **Pass**: each rule is a scripted scenario with an expected outcome
+   (e.g. "a unit with `mov` 3 on the ramp reaches exactly these 11
+   cells"), auto-driven like the P2 labs.
+3. **Promote** the code out of the lab into a reusable game module
+   (`game/Rules`, `game/AI`, `game/UnitSpawner`, …). The lab then calls
+   the module, never its own copy.
+4. **Integrate**: `BattleScene` consumes only promoted modules. The lab
+   stays as that feature's regression test.
+
+Labs are also where design options are compared before committing
+(turn order by initiative vs. faction, hit chance vs. deterministic
+damage, zones of control, knockback, terrain effects): each option is a
+DebugPanel toggle plus numbers logged from AI-vs-AI runs (average battle
+length, win rate by side).
+
 ```
 TitleScene ──► HubScene ──┬─► RenderLab     materials, texture, skinning, shadows, lights
                           ├─► AnimLab       rigid clips, skeletal, events, rate, FootIK
                           ├─► FxLab         particles, rain, sky/stars/weather knobs, flash
                           ├─► CameraLab     orbit/yaw/pitch limits, ortho, follow, pan, pick
                           ├─► SystemsLab    save slots, Saveable, Bag/EquipSlots, Catalog, Clock calendar, audio SFX
-                          └─► BattleScene   level-driven SRPG slice (integration)
+                          ├─► UnitLab       skinned units from catalog, facing, attack→hit→hurt→death     (P2b)
+                          ├─► TacticsLab    mov/range/LoS/cover/stun/ranged/damage scenarios               (P2b)
+                          ├─► AILab         AI vs AI, fixed seeds, legality, metrics                        (P2b)
+                          ├─► LevelLab      .lvl v3, props, terrain mesh, level select                      (P2b)
+                          ├─► UILab         action menu, unit card, turn order, portrait                    (P2b)
+                          └─► BattleScene   level-driven SRPG slice (integration of promoted modules)
                                    └─► ResultScene (victory/defeat) ──► Hub
 ```
 
@@ -366,23 +390,178 @@ move across 3 cells → IK on → drag target out of reach.
 the convention). The same AnimLab rows must pass with it swapped in; any
 failure is a loader gap to fix, not a checklist change.
 
+### P2b — Lab-first features for the battle
+
+Status: planned 2026-09-26. Every row below is a checklist row in the
+named lab; a feature is **done** when its rows are green in an ASan
+auto-drive and its code lives in the promoted module, not in the lab.
+
+**Prerequisite H1 — scripted input harness.** Promote the throwaway
+`NAG_SCRIPT` patch used to verify every P2 lab into
+`src/desktop/main.cpp`: `--script <file>` with lines
+`<frame> <tap|down|move|up|shot|quit> [x y]` in framebuffer coordinates,
+plus `--start <Scene>` to skip Title/Hub. Every lab/battle run below is
+reproducible from a checked-in `scripts/verify/*.txt`.
+
+#### P2b.1 UnitLab — skinned units as game objects
+
+Promotes: `game/UnitSpawner` (skinned spawn path in `unit::spawn`),
+facing correction, `MoveAction` cleanup. Builds on AnimLab's rig.
+
+Engine/game changes:
+- **U1** `UnitDef` gets `mesh/model/material` + `modelYawDeg` (glTF +Z →
+  engine −Z); `unit::spawn` builds a skinned node (`buildSkinnedNode`)
+  when `skeleton && mesh`, else the cube rig. `Unit::visualNode()` is the
+  node that owns the skeleton; actions use it for clips.
+- **U2** `MoveAction`: no hard-coded 0.56 scale (use the unit's own base
+  scale), no rigid-clip requirement, cube-rig leg swing only for cube
+  rigs; plays `ClipSet::walk` automatically.
+- **U3** `AttackAction` plays `ClipSet::attack` on the attacker and
+  `ClipSet::hurt` on the target via `visualNode()`; death plays `Death`
+  (one-shot, held) and hides the selection ring.
+
+| Row | Observed condition |
+|---|---|
+| `skinned spawn` | `spawnFromCatalog("knight")` yields a unit whose visual node has 15 bones and plays `Idle` |
+| `facing` | after a move along +X the rig's forward (model +Z after correction) points +X (±2°) |
+| `no stray scale` | unit visual world scale == 1.0 during and after a move |
+| `walk in move` | `Walk` plays during the move, `Idle` after (no manual `setWalkClip`) |
+| `attack chain` | attack → `kHit` → target HP drops by the damage formula once |
+| `hurt reaction` | target plays `Hurt` starting within 1 frame of `kHit` |
+| `death` | HP 0 → `Death` holds, unit not pickable, ring hidden |
+| `cube rig fallback` | a catalog entry without mesh still spawns the cube rig |
+
+#### P2b.2 TacticsLab — rules as deterministic scenarios
+
+Promotes: `game/Rules` (reachability, LoS, cover, damage, statuses,
+ranged). Each scenario is a tiny hand-built map (5×5–8×8) with an
+expected result; the lab cycles through them and draws the overlay.
+
+Changes:
+- **T1** `rules::reachable(grid, unit, occupancy)` → cells within
+  `stats.mov` (path cost, impassable, occupied, elevation step limit).
+- **T2** `rules::lineOfSight(grid, a, b)` symmetric, with elevation
+  (eye height, ridge cells block); replaces `BattleGrid::hasLineOfSight`.
+- **T3** Cover: `Cell::cover` reduces damage (tunable %), directional
+  optional.
+- **T4** `rules::damage(attacker, target, context)` single formula
+  (atk − def, cover, elevation bonus, variance switch).
+- **T5** `RangedAttackAction` with a projectile node (arc or straight),
+  hit on arrival; stun applied by one skill; stunned units skip a turn.
+
+| Row | Observed condition |
+|---|---|
+| `mov reach` | scenario A: `mov` 3 on flat 7×7 with 2 walls → exactly the expected 17 cells |
+| `occupied blocks` | allies passable but not stoppable; enemies block |
+| `elevation step` | a 1.0 step blocks, a 0.5 step does not (tunable) |
+| `los symmetric` | LoS(a,b) == LoS(b,a) for every pair in scenario B |
+| `los ridge` | a raised ridge cell blocks LoS between low cells, not from high ground |
+| `cover` | same attack deals less damage into cover by the set % |
+| `damage formula` | 10 fixed cases match the table in the lab |
+| `ranged` | projectile reaches target; hit applies once on arrival; out-of-range refused |
+| `stun` | stunned unit's turn is skipped exactly once per stun turn |
+
+Design toggles (DebugPanel): damage variance on/off, cover 25/50 %,
+elevation bonus on/off, diagonal moves on/off.
+
+#### P2b.3 AILab — AI vs AI with metrics
+
+Promotes: `game/AI` (`ai::planTurn(unit, world) → actions`).
+
+| Row | Observed condition |
+|---|---|
+| `legal moves` | 200 AI turns (fixed seeds) never produce a move outside `reachable` or an attack outside range/LoS |
+| `approach` | a unit with no target in range ends its turn closer to the nearest enemy |
+| `attack in range` | a unit with a target in range attacks it |
+| `terminates` | 20 seeded battles (3v3, 8×8) all end within 30 rounds |
+| `deterministic` | the same seed gives the same action log twice |
+
+Metrics shown/logged per batch: mean rounds, win rate per side,
+damage dealt per unit type — used to compare design toggles from P2b.2.
+
+#### P2b.4 LevelLab — level data pipeline
+
+Promotes: `.lvl` v3 loader + `make_level.py` v3, `game/LevelSpawner`.
+
+Changes:
+- **L1** `.lvl` v3: unit records get `catalogId` (fixed 16-byte name),
+  optional `unitId` (u16), prop records emitted, header win condition
+  (`defeat_all` / `survive_n_rounds` / `reach_cell`). v2 still loads.
+- **L2** Elevation from `lvl.cellY` by default; heightmap presets become
+  an explicit override; `attachTerrainMesh` re-enabled (find out why it
+  was commented out) and consistent with tiles.
+- **L3** `make_level.py` emits `level_01..03` (flat, hill, fort) with props.
+
+| Row | Observed condition |
+|---|---|
+| `v3 round trip` | `make_level.py` → load: every field equal |
+| `v2 compat` | old `level_01.lvl` still loads |
+| `units by catalog` | each unit record spawns its catalog type at its cell |
+| `props` | each prop record spawns, occupies its cell, casts a shadow |
+| `terrain matches` | terrain mesh height == `cellY` at every cell centre (±1 cm) |
+| `win condition` | header value parsed and shown |
+
+#### P2b.5 Lab extensions
+
+- **SystemsLab + flow (F1)**: turn ends when the acting unit's actions
+  finish (no real-time timer on AI turns; player turn untimed);
+  win/lose evaluation for each condition; `ResultScene` → Hub; roster
+  keyed by `unitId`; battle save/restore through `Saveable` replaces the
+  fixed-struct `battle.sav`. Rows: `turn ends on idle`, `win/lose each
+  condition`, `result scene`, `save mid-battle == restore`, `roster by id`.
+- **CameraLab + battle camera (C1)**: follow the active unit, frame
+  attacker+target during an attack, pan clamped to grid bounds, portrait
+  aspect. Rows: `frames attack`, `pan clamp`, `portrait fit`.
+- **FxLab + gameplay FX (X1)**: hit burst on `kHit`, projectile trail,
+  floating damage numbers (new UI text effect), status icon while
+  stunned/poisoned. Rows: `damage number`, `status icon`, `trail`.
+
+#### P2b.6 UILab — game UI (not DebugPanel)
+
+Promotes: `game/ui` widgets (action menu, unit card, turn-order bar).
+
+| Row | Observed condition |
+|---|---|
+| `legal actions only` | menu hides Attack when nothing is in range, Move when `mov` spent |
+| `unit card` | shows name/HP/status of the selected unit, updates on damage |
+| `turn order` | bar order matches the turn manager for 2 full rounds |
+| `portrait` | at 1080×1920 nothing overlaps and every control is ≥ 48 px |
+
 ### P3 — Data-driven BattleScene (integration)
 
-1. **`.lvl` v3**: add a `catalogId` string per unit, plus a prop list and
-   an optional win condition. `make_level.py` emits `level_01..03`, with
-   props on each.
-2. Spawn units from `lvl.units` through `spawnFromCatalog`, and props
-   through `PropFactory`/`buildMeshNode` (L1). Use `lvl.cellY` elevation;
-   the heightmap preset becomes an override, and the terrain mesh is
-   re-attached so the LAND button swap works.
-3. `BattleScene(levelId)` constructor; the level is chosen from Hub (F3).
-4. Rules: `stats.mov` limit on paths; a ranged action with a projectile
-   (L4); stun applied by one skill (Y3); elevation LoS (F8); cell cover
-   (L2).
-5. Simple AI (F4): move toward nearest enemy, attack in range. It runs on
-   the non-player turn instead of letting the timer expire.
-6. Win/lose check → `ResultScene` → Hub. `GameState` keyed by unit id
-   (not by registry index) and synced back on exit.
+Status: reviewed 2026-09-26. P3 is **wiring only**: every rule, spawner,
+AI and UI piece comes from a P2b module. Findings from the review that
+P2b must cover (item → owner): battle spawns no units today (LevelLab,
+UnitLab); `unit::spawn` has no skinned path and returns a null node when
+`useRig` is false (UnitLab U1); `MoveAction` hard-codes scale 0.56,
+assumes −Z facing and special-cases cube rigs (U2); `findPath` ignores
+`mov`, LoS ignores elevation and is asymmetric near corners, cover is
+unread, nothing applies stun (TacticsLab); AI turns just time out
+(AILab, SystemsLab F1); two save systems (SystemsLab F1); FLAT heightmap
+overwrites `lvl.cellY` and the terrain mesh attach is commented out
+(LevelLab L2).
+
+1. `BattleScene(levelId)`; level chosen from Hub.
+2. Content from `LevelSpawner` (units, props, terrain, win condition).
+3. Turn loop: player input via UILab widgets, AI via `game/AI`, rules via
+   `game/Rules`, flow and saves via SystemsLab F1.
+4. Battle HUD reduced to game controls (end turn, save, speed, back);
+   the tuning panels it carries today live in FxLab/CameraLab/SystemsLab.
+5. **Battle checklist + auto-battle**: an AI-vs-AI mode drives a full
+   battle to `ResultScene` with no input under `--script`. Rows:
+   `spawned from level`, `moves within reach`, `attacks legal`,
+   `stun skips`, `result reached`, `roster synced by id`.
+
+Open decisions (from the review):
+1. Facing: per-model yaw correction in the unit factory (recommended) or
+   switch the engine to +Z forward.
+2. Saves: `Saveable` + unit ids, drop fixed-struct `battle.sav`
+   (recommended).
+3. Battle HUD: reduce to game controls (recommended).
+4. Turn flow: end turns on action completion, drop real-time timers
+   (recommended).
+5. Cube rigs: keep as fallback visual or delete (and `MoveAction`'s
+   cube-rig code).
 
 ### P4 — Engine gaps (only after the labs show the need)
 
@@ -418,10 +597,12 @@ failure is a loader gap to fix, not a checklist change.
 
 ## 6. Suggested order
 
-1. P0 leftovers (items 2–5).
-2. FxLab (no engine changes; proves B1/B2/B5 on GPU).
-3. CameraLab (no engine changes).
-4. AnimLab: `gen_test_rig.py` → A1–A6 with selfTests → A7 → lab.
-5. RenderLab + R1 (reuses `test_rig.glb` as a skinned caster).
-6. SystemsLab + S1/S2.
-7. P3 battle, then P4 (real character, glTF materials, point lights).
+Done: P0, P1, P2.1–P2.5.
+
+1. H1 scripted input harness (`--script`, `--start`).
+2. UnitLab (U1–U3) — everything else spawns units through it.
+3. TacticsLab (T1–T5) and LevelLab (L1–L3), in either order.
+4. AILab (needs `game/Rules`).
+5. SystemsLab F1, CameraLab C1, FxLab X1, UILab.
+6. P3 wiring + battle checklist/auto-battle.
+7. P4 as the labs show the need.

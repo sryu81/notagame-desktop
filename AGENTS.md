@@ -150,4 +150,4 @@ Verified: 47 selfTests PASS; title + battle render at 60 FPS on Mesa radeonsi
 (GLES 3.2); PulseAudio via miniaudio; level + 3 .glb load.
 
 Done: P0 B1–B8, P1 (hub, DebugPanel, LabChecklist, battle split, LabAssets).
-Next: P3 data-driven BattleScene (DEMO_PLAN §3), using test_rig.glb units.
+Next: P2b lab-first features (DEMO_PLAN §6), starting with H1 and UnitLab.

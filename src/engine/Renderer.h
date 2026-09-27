@@ -148,6 +148,7 @@ private:
     static constexpr int kShadowMapSize = 1024;
     std::unique_ptr<Shader> shadowShader_;
     std::unique_ptr<Shader> shadowSkinnedShader_;
+    bool shadowMapCleared_ = false;
     math::Mat4 lightVP_;
 
     void renderNode(const SceneNode* node);

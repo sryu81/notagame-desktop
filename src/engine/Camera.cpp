@@ -146,7 +146,11 @@ void Camera::pan(float dx, float dy) {
 }
 
 void Camera::setForward(const math::Vec3& forward) {
-    forward_ = forward.normalized();
+    const math::Vec3 flat(forward.x, 0.0f, forward.z);
+    if (flat.length() < 1e-6f) return;
+    forward_ = flat.normalized();
+    recomputeEyeFromOrbit();
+    view_ = math::Mat4::lookAt(eye_, target_, up_);
 }
 
 void Camera::recomputeEyeFromOrbit() {
@@ -156,10 +160,14 @@ void Camera::recomputeEyeFromOrbit() {
     // For forward_ = (0, 0, -1), offset maps yaw around Y + pitch around X.
     // yaw=0 → camera at +Z relative to target, looking toward -Z (forward_).
     // pitch>0 → camera pitched upward (eye.y > target.y, looking down).
+    const float s = std::sin(yawRad);
+    const float c = std::cos(yawRad);
+    const math::Vec3 yawedForward(forward_.x * c + forward_.z * s, 0.0f,
+                                  -forward_.x * s + forward_.z * c);
     math::Vec3 offset(
-        std::cos(pitchRad) * std::sin(yawRad),
+        -yawedForward.x * std::cos(pitchRad),
         std::sin(pitchRad),
-        std::cos(pitchRad) * std::cos(yawRad)
+        -yawedForward.z * std::cos(pitchRad)
     );
     eye_ = target_ + offset * distance_;
 
@@ -405,6 +413,29 @@ void Camera::selfTest() {
         // near plane z stays ~-1 in NDC after perspective divide
         // (sanity: projection still produces finite, non-zero w)
         assert(clip.w > 0.0f);
+    }
+
+    {
+        Camera cam;
+        cam.setViewportSize(800, 600);
+        cam.setPerspective(math::radians(45.0f), cam.aspect(), 0.1f, 100.0f);
+        cam.setViewLookAt(math::Vec3(0.0f, 5.0f, 10.0f), math::Vec3(0.0f), math::Vec3(0, 1, 0));
+        cam.setOrbitSnap(35.0f, 0.0f);
+        assert(cam.viewDir().z < -0.8f);
+        cam.setForward(math::Vec3(1.0f, 0.0f, 0.0f));
+        const math::Vec3 flat = math::Vec3(cam.viewDir().x, 0.0f, cam.viewDir().z).normalized();
+        assert(math::approxEqual(flat.x, 1.0f, 1e-4f));
+        assert(math::approxEqual(flat.z, 0.0f, 1e-4f));
+        assert(math::approxEqual(cam.eye().y, cam.distance() * std::sin(math::radians(35.0f)), 1e-3f));
+        cam.orbit(30.0f, 0.0f);
+        const math::Vec3 f2 = math::Vec3(cam.viewDir().x, 0.0f, cam.viewDir().z).normalized();
+        assert(math::approxEqual(std::atan2(math::cross(math::Vec3(1, 0, 0), f2).y,
+                                            math::dot(math::Vec3(1, 0, 0), f2)),
+                                 math::radians(30.0f), 1e-3f));
+        cam.setViewLookAt(cam.eye(), cam.target(), math::Vec3(0, 1, 0));
+        assert(math::approxEqual(cam.yaw(), 30.0f, 0.05f));
+        cam.setForward(math::Vec3(0.0f, 1.0f, 0.0f));
+        assert(math::approxEqual(cam.yaw(), 30.0f, 0.05f));
     }
 
     aout << "[camera] setters self-test PASS" << std::endl;

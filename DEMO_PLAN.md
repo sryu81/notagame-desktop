@@ -112,7 +112,7 @@ longer loaded by the battle scene.
 
 ### P2 — Labs
 
-Status: P2.1 FxLab done; P2.2–P2.5 open.
+Status: P2.1 FxLab, P2.2 CameraLab done; P2.3–P2.5 open.
 
 Every lab follows the same shape:
 
@@ -158,7 +158,17 @@ Scene: flat 20×20 grid, camera fixed at ISO, clock at 12:00.
 Auto-drive: Clear → Rain → Storm (10 s each), time-lapse 00:00 → 24:00 at
 2 h/s, cycle each sky knob once.
 
-#### P2.2 CameraLab — camera and input (no engine changes)
+#### P2.2 CameraLab — camera and input
+
+Status: done 2026-09-26 — `src/game/CameraLab.{h,cpp}`, 11/11 green in a
+7.4 s auto-drive under ASan. Input rows are auto-driven through the same
+entry points the platform layer calls (`Renderer::pointerDown/Move/Up`,
+`EventBus::emit<KeyDownEvent>`); taps pick/highlight cubes, keys 1–5 pick
+presets (GLFW key codes; Android needs its own mapping). Engine fixes it
+forced: `Camera::setForward` was a no-op (orbit offset ignored
+`forward_`); battle's camera terrain callback outlived its grid
+(heap-use-after-free on any later pan); scenes without a shadow root
+sampled a stale/unwritten shadow map (everything ambient-only).
 
 Scene: grid + 5 cubes at known cells as pick targets.
 
@@ -172,11 +182,10 @@ Scene: grid + 5 cubes at known cells as pick targets.
 | `follow target` | target tracks a moving cube within 1 frame |
 | `pick hit` | `pickAt` at a cube's projected center returns that cube |
 | `pick miss` | `pickAt` on empty sky → invalid |
-| `pointer move` | ≥1 `PointerMoveEvent` while dragging (manual row) |
-| `pointer up` | `PointerUpEvent` after down (manual row) |
-| `key down` | `KeyDownEvent` received; keys 1–5 select presets (manual row) |
+| `pointer move` | ≥1 `PointerMoveEvent` during a drag and the pan moved the target > 0.1 |
+| `pointer up` | `PointerUpEvent` after down |
+| `key down` | `KeyDownEvent` for key 3 selects TOP (pitch 70° ±0.5°) |
 
-Manual rows need the user; auto-drive covers the rest.
 
 #### P2.3 RenderLab — draw path
 

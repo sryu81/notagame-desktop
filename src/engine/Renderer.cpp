@@ -122,7 +122,15 @@ void Renderer::render() {
     if (sceneManager_ && sceneManager_->current()) {
         Scene* scene = sceneManager_->current();
         SceneNode* sr = scene->shadowRoot();
-        if (sr) shadowPass(sr);
+        if (sr) {
+            shadowPass(sr);
+            shadowMapCleared_ = false;
+        } else if (!shadowMapCleared_) {
+            glBindFramebuffer(GL_FRAMEBUFFER, shadowFbo_);
+            glClear(GL_DEPTH_BUFFER_BIT);
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            shadowMapCleared_ = true;
+        }
     }
 
     // Main pass

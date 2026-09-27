@@ -69,6 +69,7 @@ void BattleScene::enter(Renderer& r) {
 
 void BattleScene::exit(Renderer& r) {
     r.setPickRoot(nullptr);
+    r.camera().setTerrainHeightFn({});
     for (auto id : d().subs) EventBus::unsubscribe(id);
     if (d().registry && !d().registry->empty()) gs_.captureFrom(*d().registry);
     if (d().registry) d().registry->clear();

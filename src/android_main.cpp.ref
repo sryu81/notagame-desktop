@@ -1,0 +1,151 @@
+#include <jni.h>
+
+#include <game-activity/native_app_glue/android_native_app_glue.h>
+#include <game-activity/GameActivity.h>
+
+#include "Action.h"
+#include "BattleGrid.h"
+#include "Climate.h"
+#include "Engine.h"
+#include "Path.h"
+#include "Prop.h"
+#include "TitleScene.h"
+#include "Turn.h"
+#include "Unit.h"
+#include "UnitCatalog.h"
+#include "game/EntityBuilder.h"
+#include "game/GameState.h"
+
+extern "C" {
+
+void handle_cmd(android_app* pApp, int32_t cmd) {
+    switch (cmd) {
+        case APP_CMD_INIT_WINDOW:
+            if (!pApp->userData) {
+                auto gs = std::make_shared<game::GameState>();
+                gs->initDefaultRoster(3);
+                pApp->userData = new Renderer(pApp, [gs]() {
+                    return std::unique_ptr<Scene>(new TitleScene(*gs));
+                });
+            }
+            break;
+        case APP_CMD_TERM_WINDOW:
+            if (pApp->userData) {
+                auto* pRenderer = reinterpret_cast<Renderer*>(pApp->userData);
+                pApp->userData = nullptr;
+                delete pRenderer;
+            }
+            break;
+        default:
+            break;
+    }
+}
+
+bool motion_event_filter_func(const GameActivityMotionEvent* motionEvent) {
+    auto sourceClass = motionEvent->source & AINPUT_SOURCE_CLASS_MASK;
+    return (sourceClass == AINPUT_SOURCE_CLASS_POINTER ||
+            sourceClass == AINPUT_SOURCE_CLASS_JOYSTICK);
+}
+
+void android_main(struct android_app* pApp) {
+    aout << "Welcome to android_main" << std::endl;
+
+    math::selfTest();
+    Camera::selfTest();
+    Mesh::selfTest();
+    primitives::selfTest();
+    lighting::selfTest();
+    EventBus::selfTest();
+    input::selfTest();
+    audio::selfTest();
+    picking::selfTest();
+    SceneNode::selfTest();
+    meshdata::selfTest();
+    anim::selfTest();
+    grid::BattleGrid::selfTest();
+    path::selfTest();
+    turn::Manager::selfTest();
+    action::Manager::selfTest();
+    save::selfTest(pApp->activity->internalDataPath);
+    gltf::selfTest();
+    particle::Emitter::selfTest();
+    engine::stars::selfTest();
+    engine::sky::selfTest();
+    engine::wx::selfTest();
+    ui::UIRoot::selfTest();
+    asset::Registry::selfTest();
+    SceneManager::selfTest();
+    anim::skinningSelfTest();
+    anim::skeletalSelfTest();
+    engine::foot_ik::selfTest();
+    engine::clock::Clock::selfTest();
+    game::ClimateState::selfTest();
+    engine::scenegraph::selfTest();
+    engine::scenegraph::spawnSelfTest();
+    engine::catalogSelfTest();
+    engine::bagSelfTest();
+    engine::equipSlotsSelfTest();
+    engine::saveableSelfTest();
+    engine::TileGrid::selfTest();
+    game::UnitCatalog::selfTest();
+    game::Unit::selfTest();
+    game::Prop::selfTest();
+    game::EntityBuilder::selfTest();
+    game::EntityRegistry::selfTest();
+    game::GameState::selfTest();
+
+    EventBus::on<PointerDownEvent>([](const PointerDownEvent& e) {
+        aout << "Pointer Down: id=" << e.pointerId
+             << " (" << e.x << ", " << e.y << ")" << std::endl;
+    });
+    EventBus::on<PointerUpEvent>([](const PointerUpEvent& e) {
+        aout << "Pointer Up: id=" << e.pointerId
+             << " (" << e.x << ", " << e.y << ")" << std::endl;
+    });
+    EventBus::on<PointerMoveEvent>([](const PointerMoveEvent& e) {
+        aout << "Pointer Move: id=" << e.pointerId
+             << " (" << e.x << ", " << e.y << ")" << std::endl;
+    });
+    EventBus::on<KeyDownEvent>([](const KeyDownEvent& e) {
+        aout << "Key Down: " << e.keyCode << std::endl;
+    });
+    EventBus::on<KeyUpEvent>([](const KeyUpEvent& e) {
+        aout << "Key Up: " << e.keyCode << std::endl;
+    });
+    EventBus::on<GamepadButtonEvent>([](const GamepadButtonEvent& e) {
+        aout << "Gamepad Button: " << e.buttonCode
+             << " " << (e.down ? "down" : "up") << std::endl;
+    });
+
+    // Audio is owned by the Renderer (initialized in its ctor, shut down in dtor).
+    // The Renderer also triggers the click SFX on every pointer-down in handleInput().
+
+    pApp->onAppCmd = handle_cmd;
+    android_app_set_motion_event_filter(pApp, motion_event_filter_func);
+
+    do {
+        bool done = false;
+        while (!done) {
+            int timeout = 0, events;
+            android_poll_source* pSource;
+            int result = ALooper_pollOnce(timeout, nullptr, &events,
+                                          reinterpret_cast<void**>(&pSource));
+            switch (result) {
+                case ALOOPER_POLL_TIMEOUT:
+                case ALOOPER_POLL_WAKE:    done = true; break;
+                case ALOOPER_EVENT_ERROR:  aout << "ALooper_pollOnce returned an error" << std::endl; break;
+                case ALOOPER_POLL_CALLBACK: break;
+                default:
+                    if (pSource) pSource->process(pApp, pSource);
+            }
+        }
+
+        if (pApp->userData) {
+            auto* pRenderer = reinterpret_cast<Renderer*>(pApp->userData);
+            pRenderer->handleInput();
+            pRenderer->render();
+        }
+    } while (!pApp->destroyRequested);
+}
+
+} // extern "C"

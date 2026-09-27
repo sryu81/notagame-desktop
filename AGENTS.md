@@ -86,7 +86,7 @@ Easiest merge path: in notagame, add the same `Platform` seam first, then
 |---|---|
 | `d26319f` | import engine, game, assets from notagame@9f7916d |
 | `fd221c3` | desktop port (GLFW + GLES3/EGL, stb_image, miniaudio) |
-| (next) | carry over notagame WIP + DEMO_PLAN.md + this file |
+| `38b93fc` | carry over notagame WIP + DEMO_PLAN.md + this file |
 
 Verified: 47 selfTests PASS; title + battle render at 60 FPS on Mesa radeonsi
 (GLES 3.2); PulseAudio via miniaudio; level + 3 .glb load.

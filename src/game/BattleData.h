@@ -23,7 +23,7 @@ namespace battle {
 inline constexpr float kCameraFovYRadians = 30.0f * math::PI / 180.0f;
 inline constexpr float kCameraNearPlane   = 0.1f;
 inline constexpr float kCameraFarPlane    = 100.0f;
-inline constexpr int   kLandscapeCount    = 5;
+inline constexpr int   kLandscapeCount    = 6;
 
 enum HudPanel { kPanelTime, kPanelCamera, kPanelAudio, kPanelParticles,
                 kPanelSky, kPanelWeather, kPanelScene, kPanelCount };
@@ -65,6 +65,8 @@ struct Data {
 
     int landscapeIdx = 0;
     std::vector<asset::Handle> terrainHandles;
+    std::vector<std::vector<float>> landscapeCellY;
+    SceneNode* terrainNode = nullptr;
     std::vector<SceneNode*> tileNodes;
 
     std::unique_ptr<ui::UIRoot> ui;

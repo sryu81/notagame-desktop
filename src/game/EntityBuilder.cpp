@@ -150,7 +150,7 @@ Prop* EntityBuilder::spawnProp(const SpawnDef& def) {
 
     if (def.cellX >= 0 && def.cellY >= 0 && grid_) {
         const math::Vec3 wp = grid_->cellToWorld(def.cellX, def.cellY);
-        p->node()->setLocal(math::Mat4::translation(wp));
+        p->node()->setLocal(math::Mat4::translation(wp) * math::Mat4::scale(def.propScale));
     }
 
     Prop* ptr = p.get();

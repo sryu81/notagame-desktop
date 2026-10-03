@@ -494,6 +494,20 @@ damage dealt per unit type — used to compare design toggles from P2b.2.
 
 #### P2b.4 LevelLab — level data pipeline
 
+Status: done 2026-10-03, 6/6 rows green in ASan auto-drive. v3 adds a
+24-byte header (win type + 2 params), 56-byte unit records (v2 + 16-byte
+catalogId + unitId) and 24-byte prop records by cell (type, x, y, blocks,
+yaw, scale, colour). `level::save` writes v3; the round-trip row checks
+`save(load(file)) == file` for the three `make_level.py` outputs. The old
+file is kept as `assets/level_v2.lvl`. The terrain-mesh attach was
+commented out upstream in `1ccb62d` (large refactor, no reason given); the
+mesh it drew could never match `cellY`, because `makeHeightmap` splits each
+quad on a diagonal while `cellY` is the 4-corner average. Terrain is now
+`primitives::makeCellTerrain` (a centre vertex per cell at exactly `cellY`)
+and tile planes sit 0.08 above it. Battle's LAND row gains `LEVEL` (the
+default, from `lvl.cellY`); the five presets are overrides. Battle still
+spawns no units or props (P3).
+
 Promotes: `.lvl` v3 loader + `make_level.py` v3, `game/LevelSpawner`.
 
 Changes:
@@ -610,7 +624,7 @@ Open decisions (from the review):
 
 ## 6. Suggested order
 
-Done: P0, P1, P2.1–P2.5, H1, P2b.1 UnitLab, P2b.2 TacticsLab.
+Done: P0, P1, P2.1–P2.5, H1, P2b.1 UnitLab, P2b.2 TacticsLab, P2b.4 LevelLab.
 
 1. H1 scripted input harness (`--script`, `--start`).
 2. UnitLab (U1–U3) — everything else spawns units through it.

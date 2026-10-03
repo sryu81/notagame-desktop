@@ -19,9 +19,11 @@
 #include "HubScene.h"
 #include "RenderLab.h"
 #include "SystemsLab.h"
+#include "LevelLab.h"
 #include "TacticsLab.h"
 #include "UnitLab.h"
 #include "Rules.h"
+#include "LevelSpawner.h"
 #include "TitleScene.h"
 #include "desktop/PngWriter.h"
 #include "desktop/ScriptRunner.h"
@@ -165,6 +167,7 @@ std::unique_ptr<Scene> makeStartScene(const std::string& name, game::GameState& 
     if (name == "systemslab") return std::make_unique<SystemsLab>(gs);
     if (name == "unitlab")    return std::make_unique<UnitLab>(gs);
     if (name == "tacticslab") return std::make_unique<TacticsLab>(gs);
+    if (name == "levellab")   return std::make_unique<LevelLab>(gs);
     if (name != "title") aout << "[desktop] unknown --start '" << name << "', using title" << std::endl;
     return std::make_unique<TitleScene>(gs);
 }
@@ -257,6 +260,7 @@ int main(int argc, char** argv) {
     game::Unit::selfTest();
     game::Prop::selfTest();
     game::EntityBuilder::selfTest();
+    game::LevelSpawner::selfTest();
     game::EntityRegistry::selfTest();
     game::GameState::selfTest();
     game::DebugPanel::selfTest();

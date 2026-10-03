@@ -119,6 +119,59 @@ Mesh makeUVSphere(float radius, int rings, int segments) {
     return m;
 }
 
+Mesh makeCellTerrain(int width, int height, float cellSize, const std::vector<float>& cellY) {
+    Mesh m;
+    const int vw = width + 1;
+    const int vh = height + 1;
+    const float xOff = -static_cast<float>(width) * cellSize * 0.5f;
+    const float zOff = -static_cast<float>(height) * cellSize * 0.5f;
+    auto yAt = [&](int x, int z) { return cellY[static_cast<size_t>(z) * width + x]; };
+
+    for (int z = 0; z < vh; ++z) {
+        for (int x = 0; x < vw; ++x) {
+            float sum = 0.0f;
+            int n = 0;
+            for (int dz = -1; dz <= 0; ++dz)
+                for (int dx = -1; dx <= 0; ++dx) {
+                    const int cx = x + dx, cz = z + dz;
+                    if (cx < 0 || cz < 0 || cx >= width || cz >= height) continue;
+                    sum += yAt(cx, cz);
+                    ++n;
+                }
+            m.positions.push_back(math::Vec3(static_cast<float>(x) * cellSize + xOff, sum / n,
+                                             static_cast<float>(z) * cellSize + zOff));
+            m.uvs.push_back(math::Vec2(static_cast<float>(x) / width, static_cast<float>(z) / height));
+        }
+    }
+    const uint32_t centre0 = static_cast<uint32_t>(m.positions.size());
+    for (int z = 0; z < height; ++z) {
+        for (int x = 0; x < width; ++x) {
+            m.positions.push_back(math::Vec3((static_cast<float>(x) + 0.5f) * cellSize + xOff, yAt(x, z),
+                                             (static_cast<float>(z) + 0.5f) * cellSize + zOff));
+            m.uvs.push_back(math::Vec2((static_cast<float>(x) + 0.5f) / width,
+                                       (static_cast<float>(z) + 0.5f) / height));
+        }
+    }
+    for (int z = 0; z < height; ++z) {
+        for (int x = 0; x < width; ++x) {
+            const uint32_t i00 = static_cast<uint32_t>(z * vw + x);
+            const uint32_t i10 = i00 + 1u;
+            const uint32_t i01 = static_cast<uint32_t>((z + 1) * vw + x);
+            const uint32_t i11 = i01 + 1u;
+            const uint32_t c = centre0 + static_cast<uint32_t>(z * width + x);
+            for (uint32_t t : {i00, i10, c, i10, i11, c, i11, i01, c, i01, i00, c}) m.indices.push_back(t);
+        }
+    }
+    m.normals.assign(m.positions.size(), math::Vec3(0.0f));
+    for (size_t i = 0; i + 2 < m.indices.size(); i += 3) {
+        const math::Vec3& p0 = m.positions[m.indices[i]];
+        const math::Vec3 n = math::cross(m.positions[m.indices[i + 2]] - p0, m.positions[m.indices[i + 1]] - p0);
+        for (size_t k = 0; k < 3; ++k) m.normals[m.indices[i + k]] = m.normals[m.indices[i + k]] + n;
+    }
+    for (auto& n : m.normals) n = n.normalized();
+    return m;
+}
+
 void selfTest() {
     aout << "[primitives] self-test starting" << std::endl;
 
@@ -185,6 +238,18 @@ void selfTest() {
         const math::Vec3& corner22 = hm.positions[8];
         assert(math::approxEqual(corner22.x, 1.0f, 1e-5f));
         assert(math::approxEqual(corner22.z, 1.0f, 1e-5f));
+    }
+
+    {
+        const std::vector<float> ys = {0.0f, 1.0f, 0.5f, 2.0f};
+        const Mesh t = makeCellTerrain(2, 2, 1.0f, ys);
+        assert(t.positions.size() == 9 + 4 && t.indices.size() == 4 * 12);
+        assert(math::approxEqual(t.positions[9 + 3].y, 2.0f) && math::approxEqual(t.positions[9 + 3].x, 0.5f));
+        assert(math::approxEqual(t.positions[4].y, 0.875f));
+        assert(math::approxEqual(t.positions[0].y, 0.0f));
+        const std::vector<float> flat(4, 0.0f);
+        const Mesh f = makeCellTerrain(2, 2, 1.0f, flat);
+        for (const auto& n : f.normals) assert(n.y > 0.999f);
     }
 
     aout << "[primitives] self-test PASS" << std::endl;

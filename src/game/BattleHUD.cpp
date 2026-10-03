@@ -37,7 +37,7 @@ const float kWxFlashVal[]    = {0.5f, 0.75f, 1.0f, 1.5f, 2.0f};
 const float kWxDecayVal[]    = {2.0f, 4.0f, 6.0f, 10.0f, 16.0f};
 const float kWxIntervalVal[] = {1.0f, 2.0f, 3.0f, 5.0f, 8.0f};
 const float kWxJitterVal[]   = {0.0f, 2.0f, 7.0f, 12.0f, 20.0f};
-const char* kLandLabels[]    = {"FLAT", "HILL", "VALLEY", "RIDGE", "CLIFF"};
+const char* kLandLabels[]    = {"LEVEL", "FLAT", "HILL", "VALLEY", "RIDGE", "CLIFF"};
 const char* kPanelNames[]    = {"TIME", "CAMERA", "AUDIO", "PARTICLES", "SKY", "WEATHER", "SCENE"};
 
 template <size_t N>

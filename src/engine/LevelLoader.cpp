@@ -1,5 +1,6 @@
 #include "LevelLoader.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cstring>
 
@@ -7,13 +8,16 @@
 
 namespace level {
 
-static constexpr uint32_t kMagic   = 0x4C564C31u;
-static constexpr uint32_t kVersion = 2u;
+static constexpr uint32_t kMagic    = 0x4C564C31u;
+static constexpr uint32_t kVersion  = 2u;
+static constexpr uint32_t kVersion3 = 3u;
 
-static constexpr size_t kHeaderSize = 20;
-static constexpr size_t kCellSize   = 8;
-static constexpr size_t kUnitSize   = 38;
-static constexpr size_t kPropSize   = 32;
+static constexpr size_t kCellSize    = 8;
+static constexpr size_t kUnitSize    = 38;
+static constexpr size_t kUnitSize3   = 56;
+static constexpr size_t kPropSize    = 32;
+static constexpr size_t kPropSize3   = 24;
+static constexpr size_t kCatalogIdLen = 16;
 
 namespace {
 
@@ -66,7 +70,8 @@ bool load(const uint8_t* bytes, size_t size, Level& out) {
 
     uint32_t magic = 0, version = 0;
     if (!r.u32(magic) || !r.u32(version)) return false;
-    if (magic != kMagic || version != kVersion) return false;
+    if (magic != kMagic || (version != kVersion && version != kVersion3)) return false;
+    const bool v3 = version == kVersion3;
 
     uint16_t width = 0, height = 0;
     uint16_t unitCount = 0, propCount = 0;
@@ -76,6 +81,13 @@ bool load(const uint8_t* bytes, size_t size, Level& out) {
         !r.f32(cellSize)) return false;
     if (width == 0 || height == 0) return false;
     if (cellSize <= 0.0f) return false;
+    out.version = version;
+    if (v3) {
+        uint8_t win = 0;
+        if (!r.u8(win) || !r.u8(out.win.a) || !r.u8(out.win.b) || !r.skip(1)) return false;
+        if (win > static_cast<uint8_t>(WinType::ReachCell)) return false;
+        out.win.type = static_cast<WinType>(win);
+    }
 
     const size_t cellTotal = static_cast<size_t>(width) * static_cast<size_t>(height);
 
@@ -91,7 +103,7 @@ bool load(const uint8_t* bytes, size_t size, Level& out) {
         if (!r.f32(out.cellY[i])) return false;
     }
 
-    if (!r.need(static_cast<size_t>(unitCount) * kUnitSize)) return false;
+    if (!r.need(static_cast<size_t>(unitCount) * (v3 ? kUnitSize3 : kUnitSize))) return false;
     out.units.resize(unitCount);
     for (uint16_t i = 0; i < unitCount; ++i) {
         UnitSpawn& u = out.units[i];
@@ -113,20 +125,114 @@ bool load(const uint8_t* bytes, size_t size, Level& out) {
         u.def   = static_cast<int>(def);
         u.mov   = static_cast<int>(mov);
         u.range = static_cast<int>(range);
+        if (v3) {
+            const char* id = reinterpret_cast<const char*>(r.cur);
+            size_t len = 0;
+            while (len < kCatalogIdLen && id[len] != 0) ++len;
+            u.catalogId.assign(id, len);
+            if (!r.skip(kCatalogIdLen) || !r.u16(u.unitId)) return false;
+        }
     }
 
-    if (!r.need(static_cast<size_t>(propCount) * kPropSize)) return false;
+    if (!r.need(static_cast<size_t>(propCount) * (v3 ? kPropSize3 : kPropSize))) return false;
     out.props.resize(propCount);
     for (uint16_t i = 0; i < propCount; ++i) {
         Prop& p = out.props[i];
-        if (!r.u8(p.type)) return false;
-        if (!r.skip(3)) return false;
-        if (!r.f32(p.pos.x) || !r.f32(p.pos.y) || !r.f32(p.pos.z)) return false;
-        if (!r.f32(p.scale)) return false;
+        if (v3) {
+            uint8_t blocks = 0;
+            if (!r.u8(p.type) || !r.u8(p.x) || !r.u8(p.y) || !r.u8(blocks)) return false;
+            if (p.x >= width || p.y >= height) return false;
+            p.blocks = blocks != 0;
+            if (!r.f32(p.yaw) || !r.f32(p.scale)) return false;
+        } else {
+            if (!r.u8(p.type)) return false;
+            if (!r.skip(3)) return false;
+            if (!r.f32(p.pos.x) || !r.f32(p.pos.y) || !r.f32(p.pos.z)) return false;
+            if (!r.f32(p.scale)) return false;
+        }
         if (!r.f32(p.color.x) || !r.f32(p.color.y) || !r.f32(p.color.z)) return false;
     }
 
     return r.eof();
+}
+
+namespace {
+
+struct Writer {
+    std::vector<uint8_t> out;
+    void raw(const void* p, size_t n) {
+        const auto* b = static_cast<const uint8_t*>(p);
+        out.insert(out.end(), b, b + n);
+    }
+    void u8(uint8_t v) { out.push_back(v); }
+    void u16(uint16_t v) { raw(&v, 2); }
+    void u32(uint32_t v) { raw(&v, 4); }
+    void f32(float v) { raw(&v, 4); }
+    void pad(size_t n) { out.insert(out.end(), n, 0); }
+};
+
+}
+
+std::vector<uint8_t> save(const Level& l) {
+    Writer w;
+    w.u32(kMagic);
+    w.u32(kVersion3);
+    w.u16(l.width);
+    w.u16(l.height);
+    w.u16(static_cast<uint16_t>(l.units.size()));
+    w.u16(static_cast<uint16_t>(l.props.size()));
+    w.f32(l.cellSize);
+    w.u8(static_cast<uint8_t>(l.win.type));
+    w.u8(l.win.a);
+    w.u8(l.win.b);
+    w.pad(1);
+    for (size_t i = 0; i < l.terrain.size(); ++i) {
+        w.u8(l.terrain[i]);
+        w.pad(3);
+        w.f32(i < l.cellY.size() ? l.cellY[i] : 0.0f);
+    }
+    for (const auto& u : l.units) {
+        w.u8(u.faction);
+        w.u8(u.x);
+        w.u8(u.y);
+        w.u8(u.skinned ? 1 : 0);
+        w.f32(u.baseColor.x); w.f32(u.baseColor.y); w.f32(u.baseColor.z);
+        w.f32(u.selectedColor.x); w.f32(u.selectedColor.y); w.f32(u.selectedColor.z);
+        for (int v : {u.maxHp, u.atk, u.def, u.mov, u.range}) w.u16(static_cast<uint16_t>(v));
+        char id[kCatalogIdLen] = {};
+        std::memcpy(id, u.catalogId.data(), std::min(u.catalogId.size(), kCatalogIdLen));
+        w.raw(id, kCatalogIdLen);
+        w.u16(u.unitId);
+    }
+    for (const auto& p : l.props) {
+        w.u8(p.type);
+        w.u8(p.x);
+        w.u8(p.y);
+        w.u8(p.blocks ? 1 : 0);
+        w.f32(p.yaw);
+        w.f32(p.scale);
+        w.f32(p.color.x); w.f32(p.color.y); w.f32(p.color.z);
+    }
+    return w.out;
+}
+
+const char* toString(WinType t) {
+    switch (t) {
+        case WinType::DefeatAll:     return "DEFEAT ALL";
+        case WinType::SurviveRounds: return "SURVIVE";
+        case WinType::ReachCell:     return "REACH CELL";
+    }
+    return "?";
+}
+
+std::string describe(const WinCondition& w) {
+    switch (w.type) {
+        case WinType::DefeatAll:     return "DEFEAT ALL";
+        case WinType::SurviveRounds: return "SURVIVE " + std::to_string(w.a) + " ROUNDS";
+        case WinType::ReachCell:
+            return "REACH CELL " + std::to_string(w.a) + "," + std::to_string(w.b);
+    }
+    return "?";
 }
 
 void selfTest() {
@@ -202,6 +308,46 @@ void selfTest() {
         assert(l.units[0].y == 0);
         assert(l.units[0].maxHp == 0);
         assert(l.units[0].range == 0);
+        assert(l.version == 2 && l.units[0].catalogId.empty());
+    }
+
+    {
+        Level a;
+        a.width = 2;
+        a.height = 1;
+        a.cellSize = 1.5f;
+        a.win = {WinType::ReachCell, 1, 0};
+        a.terrain = {1, 0};
+        a.cellY = {0.25f, -0.5f};
+        UnitSpawn u;
+        u.faction = 1;
+        u.x = 1;
+        u.maxHp = 9;
+        u.range = 2;
+        u.catalogId = "goblin";
+        u.unitId = 7;
+        a.units.push_back(u);
+        u.catalogId = "a_very_long_catalog_id";
+        a.units.push_back(u);
+        Prop p;
+        p.type = 2;
+        p.x = 1;
+        p.blocks = false;
+        p.yaw = 1.5f;
+        p.scale = 0.8f;
+        a.props.push_back(p);
+        const auto bytes = save(a);
+        assert(bytes.size() == 24 + 2 * kCellSize + 2 * kUnitSize3 + kPropSize3);
+        Level b;
+        assert(load(bytes.data(), bytes.size(), b));
+        assert(b.version == 3 && b.win.type == WinType::ReachCell && b.win.a == 1);
+        assert(b.cellSize == 1.5f && b.cellY[1] == -0.5f && b.terrain[1] == 0);
+        assert(b.units[0].catalogId == "goblin" && b.units[0].unitId == 7 && b.units[0].range == 2);
+        assert(b.units[1].catalogId == "a_very_long_cata");
+        assert(b.props[0].type == 2 && b.props[0].x == 1 && !b.props[0].blocks && b.props[0].yaw == 1.5f);
+        assert(save(b) == bytes);
+        assert(!load(bytes.data(), bytes.size() - 1, b));
+        assert(describe(a.win) == "REACH CELL 1,0");
     }
 
     aout << "[level] self-test PASS" << std::endl;

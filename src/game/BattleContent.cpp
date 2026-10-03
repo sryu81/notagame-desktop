@@ -23,6 +23,7 @@ constexpr float kCameraDistanceMin     = 5.0f;
 constexpr float kCameraDistanceMax     = 20.0f;
 const math::Vec3 kLightDir = math::Vec3(0.4f, 0.8f, 0.5f).normalized();
 constexpr float kAmbient   = 0.2f;
+constexpr float kTileLift  = 0.08f;
 
 void createClips() {
     d().attackClip.loop = false;
@@ -82,9 +83,16 @@ int& pendingLandscapeIdx() {
 void setLandscape(int idx) {
     if (!d().grid || idx < 0 || idx >= static_cast<int>(d().terrainHandles.size())) return;
     d().landscapeIdx = idx;
-    const Mesh* terrain = d().assets->mesh(d().terrainHandles[idx]);
-    d().grid->applyElevationFromMesh(*terrain);
-    d().grid->reTranslateTiles(d().tileNodes);
+    const std::vector<float>& ys = d().landscapeCellY[idx];
+    const int w = d().grid->width();
+    for (int y = 0; y < d().grid->height(); ++y)
+        for (int x = 0; x < w; ++x) d().grid->setCellY(x, y, ys[static_cast<size_t>(y) * w + x]);
+    d().grid->reTranslateTiles(d().tileNodes, kTileLift);
+    if (d().terrainNode && !d().terrainNode->drawables().empty()) {
+        auto& dr = d().terrainNode->drawables().front();
+        dr.mesh = d().assets->mesh(d().terrainHandles[idx]);
+        dr.model = d().assets->model(d().terrainHandles[idx]);
+    }
     for (size_t i = 0; i < d().registry->size(); ++i) {
         auto* c = d().registry->unitAt(i);
         if (c) placeUnitAtCell(c);
@@ -151,9 +159,21 @@ void createContent(Renderer& r, game::GameState& gs) {
         }},
     };
 
+    d().landscapeCellY.clear();
+    d().landscapeCellY.push_back(lvl.cellY);
     for (const auto& shape : kShapes) {
-        Mesh hm = primitives::makeHeightmap(terrainW, terrainH, terrainCS, shape.yAt);
-        d().terrainHandles.push_back(d().assets->addMesh(shape.label, std::move(hm)));
+        const Mesh hm = primitives::makeHeightmap(terrainW, terrainH, terrainCS, shape.yAt);
+        grid::BattleGrid sampler(terrainW, terrainH, terrainCS);
+        sampler.applyElevationFromMesh(hm);
+        std::vector<float> ys(static_cast<size_t>(terrainW) * terrainH);
+        for (int y = 0; y < terrainH; ++y)
+            for (int x = 0; x < terrainW; ++x) ys[static_cast<size_t>(y) * terrainW + x] = sampler.cellY(x, y);
+        d().landscapeCellY.push_back(std::move(ys));
+    }
+    for (size_t i = 0; i < d().landscapeCellY.size(); ++i) {
+        const char* label = i == 0 ? "LEVEL" : kShapes[i - 1].label;
+        d().terrainHandles.push_back(d().assets->addMesh(
+            label, primitives::makeCellTerrain(terrainW, terrainH, terrainCS, d().landscapeCellY[i])));
     }
     assert(static_cast<int>(d().terrainHandles.size()) == kLandscapeCount);
 
@@ -172,6 +192,8 @@ void createContent(Renderer& r, game::GameState& gs) {
         }
     }
 
+    d().terrainNode = d().grid->attachTerrainMesh(d().root.get(), d().assets->mesh(d().terrainHandles[0]),
+                                                  d().assets->model(d().terrainHandles[0]), d().litMat);
     d().tileNodes = d().grid->attachTo(d().root.get(), gridMesh, planeModel,
                     math::Vec3(0.76f, 0.70f, 0.50f), math::Vec3(0.30f, 0.30f, 0.30f),
                     d().litMat);

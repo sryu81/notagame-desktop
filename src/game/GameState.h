@@ -1,6 +1,7 @@
 #ifndef NOT_A_GAME_GAME_STATE_H
 #define NOT_A_GAME_GAME_STATE_H
 
+#include <cstdint>
 #include <vector>
 
 #include "Bag.h"
@@ -13,6 +14,7 @@ namespace game { class EntityRegistry; }
 namespace game {
 
 struct UnitSnapshot {
+    uint16_t unitId = 0;
     int hp = 10;
     int maxHp = 10;
     engine::Bag<game::ItemDef> inventory;

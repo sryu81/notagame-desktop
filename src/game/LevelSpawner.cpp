@@ -58,7 +58,10 @@ std::vector<Unit*> LevelSpawner::spawnUnits(const level::Level& lvl, const UnitC
             s.baseScale = 0.45f;
             u = builder.spawnUnit(s);
         }
-        if (u) out.push_back(u);
+        if (u) {
+            u->setUnitId(rec.unitId);
+            out.push_back(u);
+        }
     }
     return out;
 }

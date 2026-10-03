@@ -69,7 +69,8 @@ Labs: `FxLab` (particles/sky/weather, 12 checks), `CameraLab` (orbit/limits/
 ortho/forward/follow/pick/input, 11 checks), `RenderLab` (texture, primitives,
 skinning, shadows, depthWrite, bounds, bone clamp, 9 checks + opt-in heavy
 mesh), `SystemsLab` (save slots, Saveable, Bag/Equip/Catalog, custom
-calendar, SFX voices, music switch, volume buses, 10 checks), `AnimLab`
+calendar, SFX voices, music switch, volume buses, turn flow, win/lose,
+result scene, mid-battle save, roster by id, 15 checks), `AnimLab`
 (test rig clips, loop flags, B6, events, playback rate, walk during move,
 foot IK on a ramp, 14 checks), `UnitLab` (skinned catalog units, facing,
 base scale, walk in move, attack→hit→hurt, death, cube-rig fallback,
@@ -173,6 +174,11 @@ Fixes made here that upstream lacks (keep this list current):
 - `game/AI`: `ai::planTurn` (attack / move-to-attack / approach, seeded
   tie-breaks), `ai::simulate` headless seeded battles with per-turn
   legality records, `ai::turnLog` shared by sim and live replay.
+- `game/BattleFlow` (win/lose per condition, idle-driven turn end,
+  `BattleSnapshot` Saveable battle save replacing the fixed-struct
+  `battle.sav`), `ResultScene`, `Unit::unitId` (saved; `Unit::load` goes
+  through `setCell` so the grid stays in sync), roster keyed by id,
+  `turn::Manager` rounds/untimed mode.
 - Font: punctuation glyphs (`. : % = < > / ( ) , ? * ' _`) and lowercase →
   uppercase shapes. Regenerate with `python3 tools/gen_font.py > src/engine/FontData.h`
   (`tools/gen_font.py` is copied from upstream and extended).

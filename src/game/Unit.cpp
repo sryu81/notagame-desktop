@@ -125,6 +125,7 @@ void Unit::update(float /*dt*/) {
 }
 
 void Unit::save(engine::SaveWriter& w) const {
+    w.writeU32(unitId_);
     w.writeU32(static_cast<uint32_t>(faction_));
     w.writeI32(hp_);
     w.writeI32(stats_.maxHp);
@@ -163,6 +164,9 @@ void Unit::save(engine::SaveWriter& w) const {
 }
 
 void Unit::load(engine::SaveReader& r) {
+    uint32_t id = 0;
+    r.readU32(id);
+    unitId_ = static_cast<uint16_t>(id);
     uint32_t f = 0;
     r.readU32(f);
     faction_ = static_cast<unit::Faction>(f);
@@ -172,8 +176,10 @@ void Unit::load(engine::SaveReader& r) {
     r.readI32(stats_.def);
     r.readI32(stats_.mov);
     r.readI32(stats_.range);
-    r.readFloat(cell_.x);
-    r.readFloat(cell_.y);
+    math::Vec2 cell = cell_;
+    r.readFloat(cell.x);
+    r.readFloat(cell.y);
+    setCell(cell);
     uint32_t invCount = 0;
     r.readU32(invCount);
     inventory_.clear();
@@ -186,6 +192,8 @@ void Unit::load(engine::SaveReader& r) {
         r.readI32(it.heal);
         inventory_.add(it.name, std::move(it), 1);
     }
+    equipment_ = engine::EquipSlots<ItemDef, EquipSlot>{
+        EquipSlot::Head, EquipSlot::Body, EquipSlot::Hand, EquipSlot::Feet, EquipSlot::Accessory};
     for (uint32_t s = 0; s < static_cast<uint32_t>(EquipSlot::Count); ++s) {
         const auto slot = static_cast<EquipSlot>(s);
         uint32_t present = 0;
@@ -321,6 +329,7 @@ void Unit::selfTest() {
             c2.load(r);
         }
         assert(c2.faction() == unit::Faction::Ally);
+        assert(c2.unitId() == 0);
         assert(c2.hp() == 15);
         assert(c2.stats().atk == 5);
         assert(c2.stats().range == 2);

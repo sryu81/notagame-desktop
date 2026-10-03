@@ -42,13 +42,14 @@ void Manager::update(float dt) {
     if (dt < 0.0f) dt = 0.0f;
     elapsed_ += dt;
     float dur = currentDuration();
-    while (elapsed_ >= dur) {
+    while (timed_ && elapsed_ >= dur) {
         elapsed_ -= dur;
         advance();
         dur = currentDuration();
     }
     while (isDeadOrNull(units_[currentIndex_]) && hasAliveUnit()) {
         currentIndex_ = (currentIndex_ + 1) % units_.size();
+        if (currentIndex_ == 0) ++round_;
         elapsed_ = 0.0f;
     }
     if (units_[currentIndex_] != nullptr) {
@@ -79,6 +80,7 @@ bool Manager::isPlayerTurn() const {
 }
 
 void Manager::reset() {
+    round_ = 1;
     currentIndex_ = 0;
     elapsed_ = 0.0f;
 }
@@ -90,13 +92,23 @@ void Manager::restore(int index, float elapsed) {
 }
 
 void Manager::advance() {
-    currentIndex_ = (currentIndex_ + 1) % units_.size();
-    for (size_t guard = 0; guard < units_.size(); ++guard) {
+    auto step = [this]() {
+        currentIndex_ = (currentIndex_ + 1) % units_.size();
+        if (currentIndex_ == 0) ++round_;
+    };
+    step();
+    size_t stunSkips = 0;
+    for (size_t guard = 0; guard < 2 * units_.size(); ++guard) {
         game::Unit *u = units_[currentIndex_];
-        if (u == nullptr || u->isDead() || !u->isStunned()) break;
+        if (isDeadOrNull(u)) {
+            if (!hasAliveUnit()) break;
+            step();
+            continue;
+        }
+        if (!u->isStunned() || stunSkips++ >= units_.size()) break;
         u->tickStatuses();
         ++skipped_;
-        currentIndex_ = (currentIndex_ + 1) % units_.size();
+        step();
     }
 }
 
@@ -137,6 +149,20 @@ void Manager::selfTest() {
         c.applyStatus({unit::StatusType::Stunned, 5, 0});
         m.endTurn();
         assert(m.skippedTurns() == 6);
+    }
+
+    {
+        game::Unit a(nullptr, unit::Faction::Player, unit::Stats{10, 5, 3, 4});
+        game::Unit b(nullptr, unit::Faction::Enemy, unit::Stats{10, 5, 3, 4});
+        Manager m;
+        m.setUnits({&a, &b});
+        m.setTimed(false);
+        m.update(100.0f);
+        assert(m.currentUnit() == &a && m.round() == 1);
+        m.endTurn();
+        assert(m.currentUnit() == &b && m.round() == 1);
+        m.endTurn();
+        assert(m.currentUnit() == &a && m.round() == 2);
     }
 
     {

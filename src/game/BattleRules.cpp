@@ -1,4 +1,5 @@
 #include "BattleData.h"
+#include "BattleFlow.h"
 #include "Rules.h"
 
 #include <algorithm>
@@ -10,30 +11,6 @@
 #include "Unit.h"
 
 namespace battle {
-
-namespace {
-
-struct SavedStatus { int32_t type; int32_t duration; int32_t magnitude; };
-struct SavedUnit {
-    int32_t faction;
-    int32_t hp;
-    float   cellX, cellY;
-    int32_t statusCount;
-    SavedStatus statuses[4];
-};
-struct SaveData {
-    uint32_t magic;
-    uint32_t version;
-    uint32_t unitCount;
-    int32_t  turnIndex;
-    float    turnElapsed;
-    SavedUnit units[16];
-};
-constexpr uint32_t kSaveMagic     = 0x4E41474D;
-constexpr uint32_t kSaveVersion   = 2;
-constexpr int      kMaxSavedUnits = 16;
-
-} // namespace
 
 void setPathOverlay(const std::vector<math::Vec2>& path) {
     if (!d().pathOverlay) return;
@@ -214,68 +191,25 @@ void placeUnitAtCell(game::Unit* u) {
 
 void saveGame() {
     if (d().savePath.empty() || d().registry->empty() || !d().turnManager) return;
-    SaveData data = {};
-    data.magic     = kSaveMagic;
-    data.version   = kSaveVersion;
-    data.turnIndex = d().turnManager->turnIndex();
-    data.turnElapsed = d().turnManager->elapsed();
-    int idx = 0;
-    for (size_t i = 0; i < d().registry->size(); ++i) {
-        if (idx >= kMaxSavedUnits) break;
-        auto* c = d().registry->unitAt(i);
-        if (!c) continue;
-        SavedUnit& su = data.units[idx++];
-        su.faction = static_cast<int32_t>(c->faction());
-        su.hp = c->hp();
-        su.cellX = c->cell().x;
-        su.cellY = c->cell().y;
-        const auto& sv = c->statuses();
-        su.statusCount = static_cast<int32_t>(sv.size() < 4 ? sv.size() : 4);
-        for (int j = 0; j < su.statusCount; ++j)
-            su.statuses[j] = {static_cast<int32_t>(sv[j].type), sv[j].duration, sv[j].magnitude};
-    }
-    data.unitCount = static_cast<uint32_t>(idx);
-    if (save::writeBytes(d().savePath.c_str(), &data, sizeof(data)))
-        aout << "[save] saved " << data.unitCount << " units to " << d().savePath << std::endl;
+    flow::BattleSnapshot snap(d().registry->allUnits(), d().turnManager.get());
+    if (save::writeAll(d().savePath.c_str(), snap))
+        aout << "[save] saved " << d().registry->unitCount() << " units to " << d().savePath << std::endl;
     else
         aout << "[save] FAILED to write " << d().savePath << std::endl;
 }
 
 void loadGame() {
     if (d().savePath.empty() || d().registry->empty() || !d().turnManager || !d().grid) return;
-    SaveData data = {};
-    if (!save::readBytes(d().savePath.c_str(), &data, sizeof(data))) {
-        aout << "[save] read failed: " << d().savePath << std::endl;
+    const auto units = d().registry->allUnits();
+    flow::BattleSnapshot snap(units, d().turnManager.get());
+    if (!save::loadAll(d().savePath.c_str(), snap) || !snap.loaded()) {
+        aout << "[save] read failed or mismatched: " << d().savePath << std::endl;
         return;
     }
-    if (data.magic != kSaveMagic || data.version != kSaveVersion) {
-        aout << "[save] bad magic/version, ignoring" << std::endl;
-        return;
-    }
-    if (data.unitCount == 0 || data.unitCount > kMaxSavedUnits) {
-        aout << "[save] bad unit count " << data.unitCount << std::endl;
-        return;
-    }
-    auto applyChar = [](game::Unit* c, const SavedUnit& su) {
-        if (c == nullptr) return;
-        int diff = su.hp - c->hp();
-        if (diff < 0) c->takeDamage(-diff);
-        else if (diff > 0) c->heal(diff);
-        c->setCell(math::Vec2(su.cellX, su.cellY));
-        placeUnitAtCell(c);
-        c->clearStatuses();
-        for (int i = 0; i < su.statusCount && i < 4; ++i)
-            c->applyStatus({static_cast<unit::StatusType>(su.statuses[i].type),
-                            su.statuses[i].duration, su.statuses[i].magnitude});
-    };
-    int n = static_cast<int>(d().registry->size());
-    if (static_cast<uint32_t>(n) > data.unitCount) n = static_cast<int>(data.unitCount);
-    for (int i = 0; i < n; ++i)
-        applyChar(d().registry->unitAt(i), data.units[i]);
-    d().turnManager->restore(data.turnIndex, data.turnElapsed);
+    for (game::Unit* u : units) placeUnitAtCell(u);
     d().lastTurnUnit = d().turnManager->currentUnit();
     setPathOverlay({});
-    aout << "[save] loaded " << data.unitCount << " units" << std::endl;
+    aout << "[save] loaded " << units.size() << " units" << std::endl;
 }
 
 void tickTurnStart() {

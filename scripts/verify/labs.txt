@@ -16,20 +16,22 @@
 4230  tap 640 361
 4430  shot systemslab.png
 4435  tap 1146 550
-4500  tap 640 413
-4800  shot unitlab.png
-4805  tap 1146 136
-4870  tap 640 465
-5350  shot tacticslab.png
-5355  tap 1146 366
-5420  tap 640 517
-5720  shot levellab.png
-5725  tap 1146 182
-5790  tap 640 569
-6390  shot ailab.png
-6395  tap 1146 182
-6460  tap 640 621
-6660  shot battle.png
-6665  tap 1172 630
-6730  shot hub.png
-6760  quit
+4500  shot result.png
+4505  tap 640 498
+4600  tap 640 413
+4900  shot unitlab.png
+4905  tap 1146 136
+4970  tap 640 465
+5450  shot tacticslab.png
+5455  tap 1146 366
+5520  tap 640 517
+5820  shot levellab.png
+5825  tap 1146 182
+5890  tap 640 569
+6490  shot ailab.png
+6495  tap 1146 182
+6560  tap 640 621
+6760  shot battle.png
+6765  tap 1172 630
+6830  shot hub.png
+6860  quit

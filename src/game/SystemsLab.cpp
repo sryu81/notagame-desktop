@@ -5,9 +5,15 @@
 
 #include <GLES3/gl3.h>
 
+#include "AI.h"
+#include "Action.h"
+#include "BattleFlow.h"
+#include "BattleGrid.h"
 #include "Engine.h"
 #include "EntityRegistry.h"
 #include "HubScene.h"
+#include "ResultScene.h"
+#include "Turn.h"
 #include "Unit.h"
 
 namespace {
@@ -22,6 +28,11 @@ const char* kCalendar    = "CUSTOM CALENDAR";
 const char* kSfxVoices   = "SFX VOICES";
 const char* kMusicSwitch = "MUSIC SWITCH";
 const char* kVolumeBus   = "VOLUME BUSES";
+const char* kTurnIdle    = "TURN ENDS ON IDLE";
+const char* kWinLose     = "WIN/LOSE EACH CONDITION";
+const char* kResultRow   = "RESULT SCENE";
+const char* kSaveRestore = "SAVE MID-BATTLE == RESTORE";
+const char* kRosterById  = "ROSTER BY ID";
 
 const char* kSfxFiles[] = {"select.wav", "move.wav", "hit.wav", "miss.wav", "turn.wav"};
 
@@ -35,6 +46,28 @@ void setRoster(game::GameState& gs, const std::vector<int>& hps) {
     gs.initDefaultRoster(hps.size());
     size_t i = 0;
     for (int hp : hps) gs.entry(i++).hp = hp;
+}
+
+std::string playTurns(ai::Battle& b, turn::Manager& tm, ai::Rng& rng, int n) {
+    std::vector<game::Unit*> ptrs;
+    for (auto& u : b.units) ptrs.push_back(u.get());
+    std::string log;
+    for (int k = 0; k < n && ai::winnerOf(ptrs) < 0; ++k) {
+        game::Unit* u = tm.currentUnit();
+        int idx = 0, target = -1, dmg = 0;
+        for (size_t i = 0; i < ptrs.size(); ++i) if (ptrs[i] == u) idx = static_cast<int>(i);
+        const ai::Plan plan = ai::planTurn(*u, *b.grid, ptrs, {}, rng);
+        if (!plan.path.empty()) u->setCell(plan.path.back());
+        if (plan.target) {
+            dmg = rules::damage(u->stats(), plan.target->stats(),
+                                rules::contextFor(*b.grid, *u, *plan.target, rng.next()));
+            plan.target->takeDamage(dmg);
+            for (size_t i = 0; i < ptrs.size(); ++i) if (ptrs[i] == plan.target) target = static_cast<int>(i);
+        }
+        log += ai::turnLog(tm.round(), idx, *u, target, dmg);
+        tm.endTurn();
+    }
+    return log;
 }
 
 bool rosterIs(const game::GameState& gs, const std::vector<int>& hps) {
@@ -71,7 +104,8 @@ void SystemsLab::enter(Renderer& r) {
     ui_->init();
     checks_ = std::make_unique<game::LabChecklist>(math::Vec2(16, 16));
     for (const char* row : {kSaveSlots, kIsolation, kRegistry, kBagRow, kEquipRow, kCatalogRow,
-                            kCalendar, kSfxVoices, kMusicSwitch, kVolumeBus})
+                            kCalendar, kSfxVoices, kMusicSwitch, kVolumeBus, kTurnIdle, kWinLose,
+                            kResultRow, kSaveRestore, kRosterById})
         checks_->add(row);
     buildUI(r);
     restartAutoDrive();
@@ -162,6 +196,10 @@ void SystemsLab::buildUI(Renderer& r) {
         onMusic2_ = !onMusic2_ && music2Loaded_;
         if (onMusic2_) rptr->audio()->playMusic(music2_, true, 0.5f);
         else           rptr->playDefaultMusic();
+    });
+    panel_->addAction("RESULT DEMO", [rptr, gs]() {
+        rptr->sceneManager().replace(std::make_unique<ResultScene>(*gs, flow::Outcome::Victory,
+                                                                   "SYSTEMS LAB DEMO"));
     });
     panel_->addAction("BACK", [rptr, gs]() {
         rptr->sceneManager().replace(std::make_unique<HubScene>(*gs));
@@ -288,6 +326,140 @@ void SystemsLab::checkCalendar() {
     checks_->check(kCalendar, c.daysPerYear() == 40 && month2 && year2);
 }
 
+void SystemsLab::checkFlow(Renderer& r) {
+    {
+        grid::BattleGrid g(6, 1, 1.0f);
+        SceneNode na, nb;
+        game::Unit a(&na, unit::Faction::Player, unit::Stats{10, 5, 3, 4, 1});
+        game::Unit b(&nb, unit::Faction::Enemy, unit::Stats{10, 5, 3, 4, 1});
+        a.setCell(math::Vec2(0, 0));
+        b.setCell(math::Vec2(5, 0));
+        a.setGrid(&g);
+        b.setGrid(&g);
+        turn::Manager tm;
+        tm.setUnits({&a, &b});
+        action::Manager am;
+        flow::BattleFlow bf(tm, am);
+        bool held = true;
+        for (int i = 0; i < 10; ++i) {
+            tm.update(5.0f);
+            held = held && !bf.update() && tm.currentUnit() == &a;
+        }
+        am.enqueue(std::make_unique<action::MoveAction>(&a, &g, std::vector<math::Vec2>{{0, 0}, {1, 0}, {2, 0}}, 0.2f));
+        bf.acted();
+        bool exact = true;
+        int ends = 0;
+        for (int i = 0; i < 40; ++i) {
+            am.update(0.05f);
+            const bool idle = am.isIdle();
+            const bool ended = bf.update();
+            if (ended) ++ends;
+            if (ended && !idle) exact = false;
+            if (idle && ends == 0) exact = false;
+        }
+        checks_->check(kTurnIdle, held && exact && ends == 1 && tm.currentUnit() == &b && a.cell().x == 2.0f);
+    }
+
+    {
+        int ok = 0;
+        for (int c = 0; c < 3; ++c) {
+            game::Unit p(nullptr, unit::Faction::Player, unit::Stats{5, 3, 1, 3, 1});
+            game::Unit e(nullptr, unit::Faction::Enemy, unit::Stats{5, 3, 1, 3, 1});
+            p.setCell(math::Vec2(0, 0));
+            e.setCell(math::Vec2(4, 0));
+            const std::vector<game::Unit*> all{&p, &e};
+            level::WinCondition w;
+            w.type = static_cast<level::WinType>(c);
+            w.a = c == 1 ? 3 : 2;
+            int round = 1;
+            if (flow::evaluate(w, all, round) == flow::Outcome::Ongoing) ++ok;
+            if (c == 0) e.takeDamage(99);
+            if (c == 1) round = 4;
+            if (c == 2) p.setCell(math::Vec2(2, 0));
+            if (flow::evaluate(w, all, round) == flow::Outcome::Victory) ++ok;
+            game::Unit q(nullptr, unit::Faction::Player, unit::Stats{5, 3, 1, 3, 1});
+            game::Unit f(nullptr, unit::Faction::Enemy, unit::Stats{5, 3, 1, 3, 1});
+            q.takeDamage(99);
+            if (flow::evaluate(w, {&q, &f}, 1) == flow::Outcome::Defeat) ++ok;
+        }
+        checks_->check(kWinLose, ok == 9);
+    }
+
+    {
+        ResultScene rs(gs_, flow::Outcome::Defeat, "LAB");
+        const auto next = rs.continueScene();
+        checks_->check(kResultRow, rs.outcome() == flow::Outcome::Defeat &&
+                                   dynamic_cast<HubScene*>(next.get()) != nullptr);
+    }
+
+    {
+        ai::SimConfig cfg;
+        cfg.seed = 4;
+        auto setup = [&cfg](ai::Battle& b, turn::Manager& tm) {
+            b = ai::setupBattle(cfg, ai::defaultRoster());
+            std::vector<game::Unit*> ptrs;
+            for (size_t i = 0; i < b.units.size(); ++i) {
+                b.units[i]->setUnitId(static_cast<uint16_t>(i + 1));
+                ptrs.push_back(b.units[i].get());
+            }
+            tm.setUnits(ptrs);
+            tm.setTimed(false);
+            return ptrs;
+        };
+        ai::Battle a;
+        turn::Manager tmA;
+        auto ptrsA = setup(a, tmA);
+        ai::Rng rngA(cfg.seed);
+        playTurns(a, tmA, rngA, 6);
+        uint32_t stateA = rngA.state();
+        const std::string path = r.dataPath() + "/lab_battle.sav";
+        flow::BattleSnapshot snapA(ptrsA, &tmA, &stateA);
+        const bool wrote = save::writeAll(path.c_str(), snapA);
+        const std::string logA = playTurns(a, tmA, rngA, 10);
+
+        ai::Battle b;
+        turn::Manager tmB;
+        auto ptrsB = setup(b, tmB);
+        std::reverse(ptrsB.begin(), ptrsB.end());
+        uint32_t stateB = 0;
+        flow::BattleSnapshot snapB(ptrsB, &tmB, &stateB);
+        const bool read = save::loadAll(path.c_str(), snapB) && snapB.loaded();
+        ai::Rng rngB(999);
+        rngB.setState(stateB);
+        const std::string logB = playTurns(b, tmB, rngB, 10);
+        if (logA != logB) aout << "[systemslab] resume differs:\n  " << logA << "\n  " << logB << std::endl;
+        checks_->check(kSaveRestore, wrote && read && !logA.empty() && logA == logB);
+    }
+
+    {
+        SceneNode parent;
+        game::EntityRegistry reg;
+        const uint16_t ids[3] = {5, 9, 2};
+        const int dmg[3] = {1, 4, 6};
+        for (int i = 0; i < 3; ++i) {
+            auto u = std::make_unique<game::Unit>(&parent, unit::Faction::Player, unit::Stats{12, 5, 3, 3, 1});
+            u->setUnitId(ids[i]);
+            u->takeDamage(dmg[i]);
+            reg.add(std::move(u));
+        }
+        game::GameState out;
+        out.captureFrom(reg);
+        const std::string path = r.dataPath() + "/lab_roster.sav";
+        game::GameState in;
+        const bool io = save::writeAll(path.c_str(), out) && save::loadAll(path.c_str(), in);
+        game::EntityRegistry shuffled;
+        const uint16_t order[3] = {2, 5, 9};
+        for (uint16_t id : order) {
+            auto u = std::make_unique<game::Unit>(&parent, unit::Faction::Player, unit::Stats{12, 5, 3, 3, 1});
+            u->setUnitId(id);
+            shuffled.add(std::move(u));
+        }
+        in.restoreTo(shuffled);
+        checks_->check(kRosterById, io && shuffled.unitAt(0)->hp() == 6 && shuffled.unitAt(1)->hp() == 11 &&
+                                    shuffled.unitAt(2)->hp() == 8);
+    }
+}
+
 void SystemsLab::autoDrive(float dt, Renderer& r) {
     autoT_ += dt;
     Audio* a = r.audio();
@@ -296,6 +468,7 @@ void SystemsLab::autoDrive(float dt, Renderer& r) {
             checkSaves(r);
             checkInventory();
             checkCalendar();
+            checkFlow(r);
             calendar_.setDateTime(1, 4, 9, 22, 0, 0);
             calendar_.setTimeScale(3600.0f);
             if (!a || !a->isOpen()) aout << "[systemslab] no audio device; audio rows stay red" << std::endl;

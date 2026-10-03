@@ -20,6 +20,8 @@ public:
     explicit Rng(uint32_t seed) : state_(seed ? seed : 0x9E3779B9u) {}
     uint32_t next();
     int below(int n) { return n > 0 ? static_cast<int>(next() % static_cast<uint32_t>(n)) : 0; }
+    uint32_t state() const { return state_; }
+    void setState(uint32_t s) { state_ = s; }
 
 private:
     uint32_t state_;

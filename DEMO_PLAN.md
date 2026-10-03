@@ -542,7 +542,15 @@ Changes:
 
 #### P2b.5 Lab extensions
 
-- **SystemsLab + flow (F1)**: turn ends when the acting unit's actions
+- **SystemsLab + flow (F1)** — done 2026-10-03, 15/15 rows green.
+  `game/BattleFlow`: `flow::evaluate` per win condition, `BattleFlow`
+  (untimed `turn::Manager`; `endTurn` the frame the acting unit's actions
+  go idle), `BattleSnapshot : Saveable` (units by `unitId`, turn index,
+  round, AI rng state; battle `saveGame/loadGame` use it). `ResultScene`
+  → Hub (verify run visits it). `Unit::unitId`, roster keyed by id.
+  `turn::Manager` counts rounds and skips dead units on `endTurn`. Battle
+  turns still use the old timer until P3 wires `BattleFlow` in.
+  Original text: turn ends when the acting unit's actions
   finish (no real-time timer on AI turns; player turn untimed);
   win/lose evaluation for each condition; `ResultScene` → Hub; roster
   keyed by `unitId`; battle save/restore through `Saveable` replaces the

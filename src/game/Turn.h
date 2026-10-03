@@ -33,6 +33,10 @@ public:
     float currentDuration() const;
 
     size_t skippedTurns() const { return skipped_; }
+    void setTimed(bool timed) { timed_ = timed; }
+    bool timed() const { return timed_; }
+    int round() const { return round_; }
+    void setRound(int r) { round_ = r; }
 
     void reset();
     void restore(int index, float elapsed);
@@ -47,6 +51,8 @@ private:
     size_t currentIndex_ = 0;
     float elapsed_ = 0.0f;
     size_t skipped_ = 0;
+    bool timed_ = true;
+    int round_ = 1;
 };
 
 } // namespace turn

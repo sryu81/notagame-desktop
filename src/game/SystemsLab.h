@@ -34,6 +34,7 @@ private:
     void checkSaves(Renderer& r);
     void checkInventory();
     void checkCalendar();
+    void checkFlow(Renderer& r);
     void refreshInfo();
     std::string slotPath(Renderer& r, int slot) const;
 

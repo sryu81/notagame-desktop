@@ -1,6 +1,7 @@
 #ifndef NOT_A_GAME_UNIT_H
 #define NOT_A_GAME_UNIT_H
 
+#include <cstdint>
 #include <vector>
 
 #include "Bag.h"
@@ -58,6 +59,8 @@ public:
     void load(engine::SaveReader& r) override;
 
     unit::Faction                      faction()    const { return faction_; }
+    uint16_t                           unitId()     const { return unitId_; }
+    void                               setUnitId(uint16_t id) { unitId_ = id; }
     const unit::Stats&                 stats()      const { return stats_; }
     int                                hp()         const { return hp_; }
     int                                maxHp()      const { return stats_.maxHp; }
@@ -106,6 +109,7 @@ private:
     float                                   baseScale_ = 1.0f;
     unit::ClipSet                           clips_;
     unit::Faction                           faction_;
+    uint16_t                                unitId_ = 0;
     unit::Stats                             stats_;
     int                                     hp_;
     math::Vec2                              cell_{0.0f, 0.0f};

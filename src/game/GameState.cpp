@@ -24,6 +24,7 @@ void GameState::captureFrom(EntityRegistry& reg) {
         auto* u = reg.unitAt(i);
         if (!u) continue;
         UnitSnapshot s;
+        s.unitId = u->unitId();
         s.hp = u->hp();
         s.maxHp = u->maxHp();
         s.inventory = u->inventory();
@@ -33,11 +34,16 @@ void GameState::captureFrom(EntityRegistry& reg) {
 }
 
 void GameState::restoreTo(EntityRegistry& reg) {
-    const size_t n = std::min(roster_.size(), reg.size());
-    for (size_t i = 0; i < n; ++i) {
-        auto* u = reg.unitAt(i);
-        if (!u) continue;
+    for (size_t i = 0; i < roster_.size(); ++i) {
         const auto& s = roster_[i];
+        Unit* u = nullptr;
+        if (s.unitId != 0) {
+            for (size_t k = 0; k < reg.size() && !u; ++k)
+                if (reg.unitAt(k) && reg.unitAt(k)->unitId() == s.unitId) u = reg.unitAt(k);
+        } else if (i < reg.size()) {
+            u = reg.unitAt(i);
+        }
+        if (!u) continue;
         u->heal(u->maxHp());
         if (s.hp < s.maxHp) u->takeDamage(u->maxHp() - s.hp);
         u->inventory() = s.inventory;
@@ -52,6 +58,7 @@ void GameState::clear() {
 void GameState::save(engine::SaveWriter& w) const {
     w.writeU32(static_cast<uint32_t>(roster_.size()));
     for (const auto& s : roster_) {
+        w.writeU32(s.unitId);
         w.writeU32(static_cast<uint32_t>(s.hp));
         w.writeU32(static_cast<uint32_t>(s.maxHp));
     }
@@ -62,7 +69,9 @@ void GameState::load(engine::SaveReader& r) {
     r.readU32(n);
     roster_.resize(n);
     for (auto& s : roster_) {
-        uint32_t hp = 0, maxHp = 0;
+        uint32_t id = 0, hp = 0, maxHp = 0;
+        r.readU32(id);
+        s.unitId = static_cast<uint16_t>(id);
         r.readU32(hp);
         r.readU32(maxHp);
         s.hp = static_cast<int>(hp);

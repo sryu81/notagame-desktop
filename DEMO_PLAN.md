@@ -479,6 +479,18 @@ elevation bonus on/off, diagonal moves on/off.
 
 #### P2b.3 AILab — AI vs AI with metrics
 
+Status: done 2026-10-03, 5/5 rows green in ASan auto-drive. `ai::planTurn`:
+attack now (lowest HP in range) → else move to the reachable cell that
+allows an attack (lowest target HP, fewest steps) → else step to the
+reachable cell nearest an enemy (Manhattan, fewest steps); ties broken by
+a seeded xorshift `ai::Rng`. `ai::simulate` runs seeded 3v3 battles on a
+generated 8×8 map (walls, 0.5 hills, connectivity checked) and records
+legality per turn. The deterministic row also replays seed 1 live through
+`MoveAction`/`AttackAction` and requires the live log to equal the headless
+one. First batch (20 seeds, default tunables): 521 turns, mean 6.8 rounds,
+player 17 – enemy 3 wins, damage KNIGHT 399, GOBLIN 278, SLINGER 220,
+MAGE 133, ARCHER 123 — the default roster favours the player side.
+
 Promotes: `game/AI` (`ai::planTurn(unit, world) → actions`).
 
 | Row | Observed condition |
@@ -624,7 +636,7 @@ Open decisions (from the review):
 
 ## 6. Suggested order
 
-Done: P0, P1, P2.1–P2.5, H1, P2b.1 UnitLab, P2b.2 TacticsLab, P2b.4 LevelLab.
+Done: P0, P1, P2.1–P2.5, H1, P2b.1 UnitLab, P2b.2 TacticsLab, P2b.3 AILab, P2b.4 LevelLab.
 
 1. H1 scripted input harness (`--script`, `--start`).
 2. UnitLab (U1–U3) — everything else spawns units through it.

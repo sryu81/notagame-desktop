@@ -12,6 +12,7 @@
 #include "Engine.h"
 #include "Path.h"
 #include "Prop.h"
+#include "AILab.h"
 #include "AnimLab.h"
 #include "BattleScene.h"
 #include "CameraLab.h"
@@ -23,6 +24,7 @@
 #include "TacticsLab.h"
 #include "UnitLab.h"
 #include "Rules.h"
+#include "AI.h"
 #include "LevelSpawner.h"
 #include "TitleScene.h"
 #include "desktop/PngWriter.h"
@@ -168,6 +170,7 @@ std::unique_ptr<Scene> makeStartScene(const std::string& name, game::GameState& 
     if (name == "unitlab")    return std::make_unique<UnitLab>(gs);
     if (name == "tacticslab") return std::make_unique<TacticsLab>(gs);
     if (name == "levellab")   return std::make_unique<LevelLab>(gs);
+    if (name == "ailab")      return std::make_unique<AILab>(gs);
     if (name != "title") aout << "[desktop] unknown --start '" << name << "', using title" << std::endl;
     return std::make_unique<TitleScene>(gs);
 }
@@ -232,6 +235,7 @@ int main(int argc, char** argv) {
     grid::BattleGrid::selfTest();
     path::selfTest();
     rules::selfTest();
+    ai::selfTest();
     turn::Manager::selfTest();
     action::Manager::selfTest();
     save::selfTest(platform.dataPath().c_str());

@@ -109,7 +109,9 @@ void FxLab::enter(Renderer& r) {
     root_ = std::make_unique<SceneNode>();
     SceneNode* ground = root_->addChild();
     ground->setLocal(math::Mat4::scale(math::Vec3(20.0f, 1.0f, 20.0f)));
-    ground->addDrawable({plane, planeModel, math::Vec3(0.45f, 0.50f, 0.40f), lit});
+    SceneNode::Drawable floor{plane, planeModel, math::Vec3(0.45f, 0.50f, 0.40f), lit};
+    floor.castShadow = false;
+    ground->addDrawable(floor);
     const math::Vec3 cubePos[] = {{-3, 0.5f, 0}, {0, 0.5f, -3}, {3, 0.5f, 0}};
     for (const auto& p : cubePos) {
         SceneNode* c = root_->addChild();

@@ -141,7 +141,9 @@ void RenderLab::buildScene() {
 
     SceneNode* ground = root_->addChild();
     ground->setLocal(math::Mat4::scale(math::Vec3(24.0f, 1.0f, 24.0f)));
-    ground->addDrawable({plane, planeModel, math::Vec3(0.55f, 0.58f, 0.50f), lit});
+    SceneNode::Drawable floor{plane, planeModel, math::Vec3(0.55f, 0.58f, 0.50f), lit};
+    floor.castShadow = false;
+    ground->addDrawable(floor);
 
     SceneNode* texCube = root_->addChild();
     texCube->setLocal(math::Mat4::translation(kTexCubePos) *

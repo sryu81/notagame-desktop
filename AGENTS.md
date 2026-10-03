@@ -196,6 +196,9 @@ Fixes made here that upstream lacks (keep this list current):
   `Saveable` save. Upstream's `BattleRules.cpp`, fixed-struct save, LAND
   presets and tuning panels are removed. `GameState::restoreTo` brings
   fallen units back at 1 HP.
+- `SceneNode::Drawable::castShadow` (default true); the shadow pass skips
+  drawables with it off. Grid tiles, terrain mesh and lab ground planes
+  only receive shadows.
 - `game/UnitTypes`: single unit stat table (battle, LevelLab, AI roster).
   `ai::planTurn` optional goal cell (reach-cell levels); battles cap at 30
   rounds.

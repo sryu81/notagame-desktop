@@ -535,7 +535,7 @@ void Renderer::renderNodeShadow(const SceneNode* node) {
     const math::Mat4 world = node->world();
     const Shader* sh = node->hasBoneMatrices() ? shadowSkinnedShader_.get() : shadowShader_.get();
     for (const auto& d : node->drawables()) {
-        if (!d.model || !d.material) continue;
+        if (!d.model || !d.material || !d.castShadow) continue;
         if (d.material->shader == nullptr) continue;
         if (sh != currentShader_) {
             sh->activate();

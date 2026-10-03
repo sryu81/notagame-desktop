@@ -262,7 +262,7 @@ int LevelLab::shadowDrawables() const {
     int n = 0;
     std::function<void(const SceneNode*)> walk = [&](const SceneNode* s) {
         for (const auto& d : s->drawables())
-            if (d.model && d.material && d.material->shader) ++n;
+            if (d.model && d.material && d.material->shader && d.castShadow) ++n;
         for (const auto& c : s->children()) walk(c.get());
     };
     walk(root_.get());

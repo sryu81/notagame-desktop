@@ -22,6 +22,7 @@ public:
         math::Vec3 color{1.0f, 1.0f, 1.0f};
         const Material *material = nullptr;
         bool depthWrite = true;
+        bool castShadow = true;
     };
 
     SceneNode() = default;

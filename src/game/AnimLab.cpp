@@ -133,7 +133,9 @@ void AnimLab::buildScene() {
     ramp->setLocal(math::Mat4::rotationZ(math::radians(kSlopeDeg)) *
                    math::Mat4::scale(math::Vec3(static_cast<float>(kGridSize) / c, 1.0f,
                                                 static_cast<float>(kGridSize))));
-    ramp->addDrawable({plane, planeModel, math::Vec3(0.55f, 0.60f, 0.48f), lit});
+    SceneNode::Drawable floor{plane, planeModel, math::Vec3(0.55f, 0.60f, 0.48f), lit};
+    floor.castShadow = false;
+    ramp->addDrawable(floor);
 
     grid_ = std::make_unique<grid::BattleGrid>(kGridSize, kGridSize, 1.0f);
     for (int y = 0; y < kGridSize; ++y)

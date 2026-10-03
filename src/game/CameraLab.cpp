@@ -80,7 +80,9 @@ void CameraLab::enter(Renderer& r) {
     root_ = std::make_unique<SceneNode>();
     SceneNode* ground = root_->addChild();
     ground->setLocal(math::Mat4::scale(math::Vec3(20.0f, 1.0f, 20.0f)));
-    ground->addDrawable({plane, planeModel, math::Vec3(0.45f, 0.50f, 0.40f), lit});
+    SceneNode::Drawable floor{plane, planeModel, math::Vec3(0.45f, 0.50f, 0.40f), lit};
+    floor.castShadow = false;
+    ground->addDrawable(floor);
     mover_ = root_->addChild();
     mover_->setLocal(math::Mat4::translation(moverPos(0.0f)) * math::Mat4::scale(math::Vec3(0.6f)));
     mover_->addDrawable({cube, cubeModel, math::Vec3(1.0f, 1.0f, 1.0f), lit});

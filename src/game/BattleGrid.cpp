@@ -52,7 +52,9 @@ std::vector<SceneNode*> BattleGrid::attachTo(SceneNode* parent, const Mesh* plan
                                * math::Mat4::scale(math::Vec3(tileScale, 1.0f, tileScale)));
             const Cell& c = at(x, y);
             const math::Vec3& color = c.passable ? passableColor : impassableColor;
-            cellNode->addDrawable({planeMesh, planeModel, color, mat});
+            SceneNode::Drawable tile{planeMesh, planeModel, color, mat};
+            tile.castShadow = false;
+            cellNode->addDrawable(tile);
             nodes.push_back(cellNode);
         }
     }
@@ -79,7 +81,9 @@ SceneNode* BattleGrid::attachTerrainMesh(SceneNode* parent, const Mesh* terrainM
     (void)tiles_;
     SceneNode* node = parent->addChild();
     node->setLocal(math::Mat4::identity());
-    node->addDrawable({terrainMesh, terrainModel, math::Vec3(0.55f, 0.55f, 0.55f), mat});
+    SceneNode::Drawable ground{terrainMesh, terrainModel, math::Vec3(0.55f, 0.55f, 0.55f), mat};
+    ground.castShadow = false;
+    node->addDrawable(ground);
     return node;
 }
 
@@ -133,6 +137,7 @@ void BattleGrid::selfTest() {
         g.attachTo(&parent, nullptr, nullptr,
                    math::Vec3(0.76f, 0.70f, 0.50f), math::Vec3(0.30f, 0.30f, 0.30f));
         assert(parent.children().size() == 36);
+        assert(!parent.children()[0]->drawables()[0].castShadow);
     }
 
     {

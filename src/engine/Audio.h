@@ -33,6 +33,9 @@ struct Voice {
 struct State {
     Voice voices[kMaxSfxVoices];
     const Music *music = nullptr;
+    const Music *const *playlist = nullptr;
+    int playlistSize = 0;
+    int track = 0;
     size_t musicPosition = 0;
     bool musicLooping = false;
     float musicVolume = 1.0f;
@@ -69,6 +72,8 @@ public:
 
     void playSound(const audio::Sound &sound, float volume = 1.0f);
     void playMusic(const audio::Music &music, bool loop = true, float volume = 1.0f);
+    void playPlaylist(const std::vector<const audio::Music *> &tracks, float volume = 1.0f, int start = 0);
+    int currentTrack() const;
     void stopMusic();
 
     void setMasterVolume(float v);

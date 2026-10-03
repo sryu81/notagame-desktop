@@ -21,6 +21,7 @@ struct Audio::Impl {
     ma_device device{};
     bool deviceOpen = false;
     audio::State state;
+    std::vector<const audio::Music *> playlist;
     std::mutex mutex;
     std::atomic<float> peak{0.0f};
 
@@ -101,6 +102,8 @@ void Audio::playMusic(const audio::Music &music, bool loop, float volume) {
     if (!impl_->deviceOpen) return;
     std::lock_guard<std::mutex> lock(impl_->mutex);
     impl_->state.music = &music;
+    impl_->state.playlist = nullptr;
+    impl_->state.playlistSize = 0;
     impl_->state.musicPosition = 0;
     impl_->state.musicLooping = loop;
     impl_->state.musicVolume = volume;
@@ -110,6 +113,8 @@ void Audio::stopMusic() {
     if (!impl_->deviceOpen) return;
     std::lock_guard<std::mutex> lock(impl_->mutex);
     impl_->state.music = nullptr;
+    impl_->state.playlist = nullptr;
+    impl_->state.playlistSize = 0;
     impl_->state.musicPosition = 0;
     impl_->state.musicLooping = false;
 }
@@ -160,4 +165,22 @@ const audio::Music *Audio::currentMusic() const {
 
 float Audio::outputPeak() const {
     return impl_->peak.load();
+}
+
+void Audio::playPlaylist(const std::vector<const audio::Music *> &tracks, float volume, int start) {
+    if (!impl_->deviceOpen || tracks.empty()) return;
+    std::lock_guard<std::mutex> lock(impl_->mutex);
+    impl_->playlist = tracks;
+    impl_->state.playlist = impl_->playlist.data();
+    impl_->state.playlistSize = static_cast<int>(impl_->playlist.size());
+    impl_->state.track = start % impl_->state.playlistSize;
+    impl_->state.music = impl_->playlist[static_cast<size_t>(impl_->state.track)];
+    impl_->state.musicPosition = 0;
+    impl_->state.musicLooping = false;
+    impl_->state.musicVolume = volume;
+}
+
+int Audio::currentTrack() const {
+    std::lock_guard<std::mutex> lock(impl_->mutex);
+    return impl_->state.playlistSize > 0 ? impl_->state.track : -1;
 }

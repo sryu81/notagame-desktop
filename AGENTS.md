@@ -57,6 +57,7 @@ third_party/           stb_image.h (v2.30), miniaudio.h (v0.11.25)
 tools/gen_font.py      generates src/engine/FontData.h
 tools/gen_checker.py   generates assets/checker.png (RenderLab texture check)
 tools/gen_sfx.py       generates select/move/hit/miss/turn/music2.wav (48 kHz mono)
+tools/gen_music.py     generates the background playlist music_01..03.wav (numpy)
 tools/gen_test_rig.py  generates assets/test_rig.glb (15-joint box humanoid)
 art/                   source art, not shipped (robot1.blend, robot1.glb)
 ```
@@ -199,6 +200,9 @@ Fixes made here that upstream lacks (keep this list current):
 - `SceneNode::Drawable::castShadow` (default true); the shadow pass skips
   drawables with it off. Grid tiles, terrain mesh and lab ground planes
   only receive shadows.
+- Background music is a playlist: `Audio::playPlaylist` (mixer advances
+  to the next track at the end and wraps); `Renderer` loads
+  `music_01.wav`.. and plays them at 0.3 (falls back to `music.wav`).
 - `game/UnitTypes`: single unit stat table (battle, LevelLab, AI roster).
   `ai::planTurn` optional goal cell (reach-cell levels); battles cap at 30
   rounds.

@@ -4,6 +4,7 @@
 #include <GLES3/gl3.h>
 #include <chrono>
 #include <memory>
+#include <vector>
 
 #include "Audio.h"
 #include "Camera.h"
@@ -112,6 +113,7 @@ private:
     std::unique_ptr<Audio> audio_;
     std::unique_ptr<audio::Sound> clickSfx_;
     std::unique_ptr<audio::Music> musicLoop_;
+    std::vector<std::unique_ptr<audio::Music>> musicTracks_;
     GLuint frameUbo_ = 0;
     const Shader* currentShader_ = nullptr;
 

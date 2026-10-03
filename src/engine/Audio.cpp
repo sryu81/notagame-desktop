@@ -40,21 +40,29 @@ void mix(State &state, float *out, int numFrames) {
     }
 
     if (state.music != nullptr) {
-        const auto &m = state.music->samples;
         const float musicScale = state.musicVolume * state.masterVolume;
         int frame = 0;
         while (frame < numFrames) {
-            if (state.musicPosition >= m.size()) {
-                if (state.musicLooping && !m.empty()) {
+            if (state.musicPosition >= state.music->samples.size()) {
+                if (state.musicLooping && !state.music->samples.empty()) {
                     state.musicPosition = 0;
+                } else if (state.playlistSize > 0) {
+                    state.track = (state.track + 1) % state.playlistSize;
+                    state.music = state.playlist[state.track];
+                    state.musicPosition = 0;
+                    if (state.music->samples.empty()) {
+                        state.music = nullptr;
+                        break;
+                    }
                 } else {
                     state.music = nullptr;
                     break;
                 }
             }
-            const int remaining = static_cast<int>(m.size() - state.musicPosition);
+            const auto &cur = state.music->samples;
+            const int remaining = static_cast<int>(cur.size() - state.musicPosition);
             const int toMix = std::min(numFrames - frame, remaining);
-            const float *src = m.data() + state.musicPosition;
+            const float *src = cur.data() + state.musicPosition;
             for (int f = 0; f < toMix; f++) {
                 float sample = src[f] * musicScale;
                 out[(frame + f) * 2 + 0] += sample;
@@ -315,6 +323,22 @@ void selfTest() {
         assert(approxEqual(out[6], 1.0f));
         // 7 frames, 3-frame loop → position should be 1
         assert(state.musicPosition == 1);
+    }
+
+    {
+        State state{};
+        Music a, b;
+        a.samples = {1.0f, 1.0f};
+        b.samples = {0.5f};
+        const Music *list[] = {&a, &b};
+        state.playlist = list;
+        state.playlistSize = 2;
+        state.music = &a;
+        std::vector<float> out(7 * 2, 0.0f);
+        mix(state, out.data(), 7);
+        assert(approxEqual(out[0], 1.0f) && approxEqual(out[2], 1.0f) && approxEqual(out[4], 0.5f));
+        assert(approxEqual(out[6], 1.0f) && approxEqual(out[10], 0.5f) && approxEqual(out[12], 1.0f));
+        assert(state.music == &a && state.track == 0 && state.musicPosition == 1);
     }
 
     // Volume independence: changing sfxVolume must not affect music output.

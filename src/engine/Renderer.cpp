@@ -42,6 +42,8 @@ static_assert(sizeof(FrameUBO) == 80, "FrameUBO layout mismatch");
 
 
 
+constexpr float kMusicVolume = 0.3f;
+
 Renderer::Renderer(Platform& platform, SceneFactory initialSceneFactory)
         : platform_(platform),
           width_(0),
@@ -58,15 +60,18 @@ Renderer::Renderer(Platform& platform, SceneFactory initialSceneFactory)
                      << clickSfx_->samples.size() << " samples)" << std::endl;
             else
                 aout << "[audio] failed to load click.wav" << std::endl;
-            audio::Music musicLoop;
-            if (audio_->loadMusic("music.wav", musicLoop)) {
-                aout << "[audio] loaded music.wav ("
-                     << musicLoop.samples.size() << " samples)" << std::endl;
-                musicLoop_ = std::make_unique<audio::Music>(std::move(musicLoop));
-                audio_->playMusic(*musicLoop_, true, 0.5f);
-            } else {
-                aout << "[audio] failed to load music.wav" << std::endl;
+            for (int i = 1; i <= 9; ++i) {
+                char name[24];
+                snprintf(name, sizeof(name), "music_%02d.wav", i);
+                auto track = std::make_unique<audio::Music>();
+                if (!audio_->loadMusic(name, *track)) break;
+                aout << "[audio] loaded " << name << " (" << track->samples.size() << " samples)" << std::endl;
+                musicTracks_.push_back(std::move(track));
             }
+            audio::Music musicLoop;
+            if (audio_->loadMusic("music.wav", musicLoop))
+                musicLoop_ = std::make_unique<audio::Music>(std::move(musicLoop));
+            playDefaultMusic();
         } else {
             aout << "[audio] init FAILED (silent)" << std::endl;
         }
@@ -572,7 +577,14 @@ void Renderer::shadowPass(const SceneNode* root) {
 }
 
 void Renderer::playDefaultMusic() {
-    if (audio_ && musicLoop_) audio_->playMusic(*musicLoop_, true, 0.5f);
+    if (!audio_) return;
+    if (!musicTracks_.empty()) {
+        std::vector<const audio::Music*> list;
+        for (const auto& t : musicTracks_) list.push_back(t.get());
+        audio_->playPlaylist(list, kMusicVolume);
+    } else if (musicLoop_) {
+        audio_->playMusic(*musicLoop_, true, kMusicVolume);
+    }
 }
 
 void Renderer::playClickSfx() {

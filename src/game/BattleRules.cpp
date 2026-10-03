@@ -80,7 +80,7 @@ void enqueueMove(game::Unit* u, std::vector<math::Vec2> path) {
 
 void enqueueAttack(game::Unit* attacker, game::Unit* target) {
     if (!d().actionManager || !attacker || !target) return;
-    const int damage = std::max(1, attacker->stats().atk - target->stats().def);
+    const int damage = unit::damage(attacker->stats(), target->stats());
     auto* node = attacker->node();
     auto* targetNode = target->node();
     bool isSkinned = (node && node->skeleton() != nullptr);
@@ -126,7 +126,7 @@ game::Unit* pickUnit(float x, float y, Renderer& r) {
     float bestDist = std::numeric_limits<float>::infinity();
     for (size_t i = 0; i < d().registry->size(); ++i) {
         auto* c = d().registry->unitAt(i);
-        if (!c || c->isDead() || !c->node()) continue;
+        if (!c || !c->pickable()) continue;
         std::vector<picking::HitShape> shapes;
         collectRigDrawables(c->node(), shapes);
         if (shapes.empty()) continue;
@@ -207,7 +207,7 @@ void placeUnitAtCell(game::Unit* u) {
         u->node()->setClip(clip);
     }
     u->node()->setLocal(math::Mat4::translation(math::Vec3(wp.x, unitY, wp.z))
-                       * math::Mat4::scale(math::Vec3(0.56f)));
+                       * math::Mat4::scale(math::Vec3(u->baseScale())));
 }
 
 void saveGame() {

@@ -148,6 +148,7 @@ private:
 
     HitCallback hitCb_;
 
+    SceneNode* animNode_ = nullptr;
     const anim::Clip* savedClip_ = nullptr;
     const anim::SkeletalClip* savedSkelClip_ = nullptr;
     float savedTime_ = 0.0f;

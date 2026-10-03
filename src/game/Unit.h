@@ -10,7 +10,7 @@
 #include "Object.h"
 
 class SceneNode;
-namespace anim { class Clip; }
+namespace anim { class Clip; struct SkeletalClip; }
 namespace grid { class BattleGrid; }
 
 namespace unit {
@@ -24,6 +24,16 @@ struct Stats {
     int mov = 4;
     int range = 1;
 };
+
+struct ClipSet {
+    const anim::SkeletalClip* idle    = nullptr;
+    const anim::SkeletalClip* walk    = nullptr;
+    const anim::SkeletalClip* attack  = nullptr;
+    const anim::SkeletalClip* hurt    = nullptr;
+    const anim::SkeletalClip* death   = nullptr;
+};
+
+int damage(const Stats& attacker, const Stats& target);
 
 enum class StatusType { Poisoned, Stunned };
 
@@ -43,6 +53,8 @@ public:
     ~Unit() override;
 
     SceneNode* node() override { return node_; }
+    SceneNode* visualNode() const { return visual_ ? visual_ : node_; }
+    void setVisualNode(SceneNode* n) { visual_ = n; }
     void update(float dt) override;
     void save(engine::SaveWriter& w) const override;
     void load(engine::SaveReader& r) override;
@@ -52,6 +64,7 @@ public:
     int                                hp()         const { return hp_; }
     int                                maxHp()      const { return stats_.maxHp; }
     bool                               isDead()     const { return hp_ <= 0; }
+    bool                               pickable()   const { return node_ != nullptr && !isDead(); }
     const math::Vec2&                  cell()       const { return cell_; }
     void                               setCell(const math::Vec2& c);
     void                               setGrid(grid::BattleGrid* g);
@@ -65,6 +78,13 @@ public:
 
     void                               setBaseOffset(const math::Vec3& o);
     const math::Vec3&                  baseOffset() const { return baseOffset_; }
+    void                               setBaseScale(float s) { baseScale_ = s; }
+    float                              baseScale()  const { return baseScale_; }
+
+    void                               setClips(const unit::ClipSet& c) { clips_ = c; }
+    const unit::ClipSet&               clips()     const { return clips_; }
+    bool                               isSkinned() const;
+    void                               playClip(const anim::SkeletalClip* c);
 
     void                               setIdleClip(const anim::Clip* c) { idleClip_ = c; }
     const anim::Clip*                  idleClip()  const { return idleClip_; }
@@ -82,8 +102,11 @@ public:
 
 private:
     SceneNode*                              node_     = nullptr;
+    SceneNode*                              visual_   = nullptr;
     grid::BattleGrid*                       grid_     = nullptr;
     math::Vec3                              baseOffset_{0.0f};
+    float                                   baseScale_ = 1.0f;
+    unit::ClipSet                           clips_;
     unit::Faction                           faction_;
     unit::Stats                             stats_;
     int                                     hp_;

@@ -49,7 +49,7 @@ void EntityBuilder::placeUnitAtCell(Unit* u) {
         u->node()->setClip(clip);
     }
     u->node()->setLocal(math::Mat4::translation(math::Vec3(wp.x, unitY, wp.z))
-                       * math::Mat4::scale(math::Vec3(0.56f)));
+                       * math::Mat4::scale(math::Vec3(u->baseScale())));
 }
 
 void EntityBuilder::createShadowMirror(Unit* u) {
@@ -90,6 +90,13 @@ Unit* EntityBuilder::spawnUnit(const SpawnDef& def) {
     cd.useRig        = def.useRig;
     cd.rootDropY     = def.rootDropY;
     cd.skeleton      = def.skeleton;
+    cd.baseScale     = def.baseScale;
+    cd.modelYawDeg   = def.modelYawDeg;
+    if (def.skeleton) {
+        cd.mesh     = def.mesh;
+        cd.model    = def.model;
+        cd.material = def.material;
+    }
     if (def.clips) cd.clips = *def.clips;
 
     engine::RigResources rigRes{def.mesh, def.model, def.material};
@@ -166,11 +173,19 @@ Unit* EntityBuilder::spawnFromCatalog(
     s.selectedColor = cd->selectedColor;
     s.skeleton   = cd->skeleton;
     s.clips      = &cd->clips;
+    s.useRig     = cd->useRig;
+    s.rootDropY  = cd->rootDropY;
+    s.baseScale  = cd->baseScale;
+    s.modelYawDeg = cd->modelYawDeg;
 
-    if (overrides.name.empty())       s.name       = cd->name;
-    if (overrides.mesh == nullptr)    s.mesh       = nullptr;
-    if (overrides.model == nullptr)   s.model      = nullptr;
-    if (overrides.material == nullptr) s.material  = nullptr;
+    if (overrides.name.empty()) s.name = cd->name;
+    if (cd->skinned()) {
+        s.mesh     = cd->mesh;
+        s.model    = cd->model;
+        s.material = cd->material;
+    } else {
+        s.skeleton = nullptr;
+    }
 
     return spawnUnit(s);
 }

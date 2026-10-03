@@ -12,13 +12,6 @@
 
 namespace unit {
 
-struct ClipSet {
-    const anim::SkeletalClip* idle    = nullptr;
-    const anim::SkeletalClip* walk    = nullptr;
-    const anim::SkeletalClip* attack  = nullptr;
-    const anim::SkeletalClip* hurt    = nullptr;
-};
-
 struct UnitDef {
     std::string             name;
     unit::Stats             baseStats;
@@ -26,11 +19,29 @@ struct UnitDef {
     asset::Handle           meshHandle     = asset::kNull;
     asset::Handle           materialHandle = asset::kNull;
     const anim::Skeleton*   skeleton       = nullptr;
+    const Mesh*             mesh           = nullptr;
+    const Model*            model          = nullptr;
+    const Material*         material       = nullptr;
+    float                   modelYawDeg    = 0.0f;
+    float                   baseScale      = 1.0f;
     ClipSet                 clips;
     math::Vec3              baseColor      = {1.0f, 1.0f, 1.0f};
     math::Vec3              selectedColor  = {1.5f, 1.5f, 0.5f};
     bool                    useRig         = true;
     float                   rootDropY      = 0.5f;
+
+    bool skinned() const { return skeleton != nullptr && mesh != nullptr; }
+
+    engine::VisualDef toVisualDef() const {
+        engine::VisualDef v;
+        v.mesh      = mesh;
+        v.model     = model;
+        v.material  = material;
+        v.skeleton  = skeleton;
+        v.idleClip  = clips.idle;
+        v.baseColor = baseColor;
+        return v;
+    }
 
     engine::RigDef toRigDef() const {
         engine::RigDef r;

@@ -21,7 +21,7 @@ cmake --build build                   # incremental; new .cpp files picked up by
 ./build/not_a_game --assets ./assets  # asset dir (default <exe dir>/assets symlink)
 scripts/rebuild_run.sh                # rm -rf build, configure, build, launch
 scripts/rebuild_run.sh --asan -- --data ./save   # same in build-asan; args after -- go to game
-./build/not_a_game --start fxlab      # start scene: title hub battle renderlab animlab fxlab cameralab systemslab
+./build/not_a_game --start fxlab      # start scene: title hub battle renderlab animlab fxlab cameralab systemslab unitlab
 ./build/not_a_game --script f.txt     # scripted input: "<frame> tap|down|move|up x y", "key code", "shot f.png", "quit"
 scripts/verify/run_labs.sh [out]      # ASan build, every lab auto-drive, fails on red check or sanitizer report
 ```
@@ -71,7 +71,9 @@ skinning, shadows, depthWrite, bounds, bone clamp, 9 checks + opt-in heavy
 mesh), `SystemsLab` (save slots, Saveable, Bag/Equip/Catalog, custom
 calendar, SFX voices, music switch, volume buses, 10 checks), `AnimLab`
 (test rig clips, loop flags, B6, events, playback rate, walk during move,
-foot IK on a ramp, 14 checks). Each auto-drives its checklist; game helpers
+foot IK on a ramp, 14 checks), `UnitLab` (skinned catalog units, facing,
+base scale, walk in move, attack→hit→hurt, death, cube-rig fallback,
+8 checks). Each auto-drives its checklist; game helpers
 `ClipEvents` (events by clip name) and `FootIKRig` (skinned foot IK).
 Lab helpers: `DebugPanel` (row list), `LabChecklist` (green-on-pass rows),
 `LabAssets` (lit/skinned/unlit shaders + materials, plane/cube meshes).
@@ -140,6 +142,14 @@ Fixes made here that upstream lacks (keep this list current):
   `MoveAction::setWalkClip`.
 - Shadow ortho box centres on the camera target (was fixed at the origin);
   `setShadowExtent`, `lightViewProjection()`, `shadowStats()` added.
+- Units: `UnitDef` carries a skinned mesh/model/material + `modelYawDeg` +
+  `baseScale`; `unit::spawn` builds a skinned child (`Unit::visualNode()`)
+  when it has a skeleton and mesh, else the cube rig. `MoveAction` uses
+  `Unit::baseScale()` (hard-coded 0.56 removed), plays `ClipSet::walk`
+  itself and swings cube-rig legs only on cube rigs. `AttackAction` plays
+  `ClipSet::attack`/`hurt` via the visual node; the timer hit path now plays
+  the reaction too (was event path only). Death plays `ClipSet::death`,
+  deselects, and `Unit::pickable()` is false. `unit::damage` = max(1, atk − def).
 - Font: punctuation glyphs (`. : % = < > / ( ) , ? * ' _`) and lowercase →
   uppercase shapes. Regenerate with `python3 tools/gen_font.py > src/engine/FontData.h`
   (`tools/gen_font.py` is copied from upstream and extended).
@@ -160,5 +170,6 @@ Easiest merge path: in notagame, add the same `Platform` seam first, then
 Verified: 47 selfTests PASS; title + battle render at 60 FPS on Mesa radeonsi
 (GLES 3.2); PulseAudio via miniaudio; level + 3 .glb load.
 
-Done: P0 B1–B8, P1 (hub, DebugPanel, LabChecklist, battle split, LabAssets).
-Next: P2b lab-first features (DEMO_PLAN §6), starting with H1 and UnitLab.
+Done: P0 B1–B8, P1 (hub, DebugPanel, LabChecklist, battle split, LabAssets),
+P2.1–P2.5 labs, H1 scripted harness, P2b.1 UnitLab.
+Next: TacticsLab (T1–T5) and LevelLab (L1–L3), DEMO_PLAN §6 step 3.

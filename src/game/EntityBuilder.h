@@ -48,6 +48,8 @@ struct SpawnDef {
     math::Vec3    selectedColor   {1.5f, 1.5f, 0.5f};
     bool          useRig          = true;
     float         rootDropY       = 0.5f;
+    float         baseScale       = 1.0f;
+    float         modelYawDeg     = 0.0f;
     const anim::Skeleton*     skeleton   = nullptr;
     const unit::ClipSet* clips      = nullptr;
     const anim::Clip*  clipTemplate = nullptr;  // per-unit clip template (rig units)
@@ -56,7 +58,7 @@ struct SpawnDef {
     math::Vec3 propColor{0.5f, 0.5f, 0.5f};
     math::Vec3 propScale{1.0f, 1.0f, 1.0f};
 
-    // Visual (rig uses mesh/model/material for pivot boxes; prop uses them directly)
+    // Visual (skinned unit: its mesh when skeleton is set; rig: pivot boxes; prop: direct)
     const Mesh*     mesh     = nullptr;
     const Model*    model    = nullptr;
     const Material* material = nullptr;

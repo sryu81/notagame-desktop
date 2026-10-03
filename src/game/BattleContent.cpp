@@ -182,18 +182,21 @@ void createContent(Renderer& r, game::GameState& gs) {
     {
         unit::UnitDef kd;
         kd.name = "Knight"; kd.faction = unit::Faction::Player;
+        kd.baseScale = 0.56f;
         kd.baseStats = {15, 6, 4, 4, 1};
         kd.baseColor = {0.9f, 0.3f, 0.2f}; kd.selectedColor = {1.5f, 0.9f, 0.2f};
         d().unitCatalog.registerDef("knight", kd);
 
         unit::UnitDef md;
         md.name = "Mage"; md.faction = unit::Faction::Ally;
+        md.baseScale = 0.56f;
         md.baseStats = {12, 8, 2, 3, 2};
         md.baseColor = {0.3f, 0.5f, 0.9f}; md.selectedColor = {0.5f, 0.9f, 1.5f};
         d().unitCatalog.registerDef("mage", md);
 
         unit::UnitDef gd;
         gd.name = "Goblin"; gd.faction = unit::Faction::Enemy;
+        gd.baseScale = 0.56f;
         gd.baseStats = {10, 5, 3, 3, 1};
         gd.baseColor = {0.2f, 0.7f, 0.2f}; gd.selectedColor = {1.0f, 0.2f, 0.2f};
         if (!d().skinnedSkeleton.bones.empty()) gd.skeleton = &d().skinnedSkeleton;

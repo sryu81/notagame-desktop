@@ -19,6 +19,7 @@
 #include "HubScene.h"
 #include "RenderLab.h"
 #include "SystemsLab.h"
+#include "UnitLab.h"
 #include "TitleScene.h"
 #include "desktop/PngWriter.h"
 #include "desktop/ScriptRunner.h"
@@ -160,6 +161,7 @@ std::unique_ptr<Scene> makeStartScene(const std::string& name, game::GameState& 
     if (name == "fxlab")      return std::make_unique<FxLab>(gs);
     if (name == "cameralab")  return std::make_unique<CameraLab>(gs);
     if (name == "systemslab") return std::make_unique<SystemsLab>(gs);
+    if (name == "unitlab")    return std::make_unique<UnitLab>(gs);
     if (name != "title") aout << "[desktop] unknown --start '" << name << "', using title" << std::endl;
     return std::make_unique<TitleScene>(gs);
 }

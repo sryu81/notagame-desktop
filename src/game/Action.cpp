@@ -37,10 +37,11 @@ void MoveAction::start() {
     savedClip_ = node->clip();
     originalClipTranslation_ = (savedClip_ && !savedClip_->keyframes.empty())
         ? savedClip_->keyframes[0].translation : math::Vec3(0.0f);
+    if (!walkClip_ && unit_->isSkinned()) walkClip_ = unit_->clips().walk;
+    if (!walkTarget_) walkTarget_ = unit_->visualNode();
     if (walkClip_) {
-        SceneNode* wt = walkTarget_ ? walkTarget_ : node;
-        savedWalkSlot_ = wt->skeletalClip();
-        wt->setSkeletalClip(walkClip_);
+        savedWalkSlot_ = walkTarget_->skeletalClip();
+        walkTarget_->setSkeletalClip(walkClip_);
     }
 
     const math::Vec3 world = grid_->cellToWorld(static_cast<int>(path_.front().x),
@@ -65,12 +66,12 @@ void MoveAction::start() {
                        * clipMat * math::Mat4::rotation(toRot_));
     } else {
         node->setLocal(math::Mat4::translation(endPos_ + unit_->baseOffset()) *
-                       math::Mat4::scale(math::Vec3(0.56f)) *
+                       math::Mat4::scale(math::Vec3(unit_->baseScale())) *
                        math::Mat4::rotation(toRot_));
     }
 
     hasRig_ = false;
-    if (node->children().size() >= 6) {
+    if (!unit_->isSkinned() && unit_->visualNode() == node && node->children().size() >= 6) {
         auto& c = node->children();
         rig_.hipL    = c[1].get();
         rig_.hipR    = c[2].get();
@@ -145,7 +146,7 @@ void MoveAction::update(float dt) {
                        * clipMat * math::Mat4::rotation(rot));
     } else {
         node->setLocal(math::Mat4::translation(endPos_ + unit_->baseOffset()) *
-                       math::Mat4::scale(math::Vec3(0.56f)) *
+                       math::Mat4::scale(math::Vec3(unit_->baseScale())) *
                        math::Mat4::rotation(rot));
     }
 
@@ -174,7 +175,7 @@ void MoveAction::onComplete() {
 
     const math::Vec3 finalPos(endPos_.x, endPos_.y - hoverY_, endPos_.z);
     node->setAnimRotOffset(toRot_);
-    if (walkClip_) (walkTarget_ ? walkTarget_ : node)->setSkeletalClip(savedWalkSlot_);
+    if (walkClip_) walkTarget_->setSkeletalClip(savedWalkSlot_);
 
     if (savedClip_ != nullptr && !savedClip_->keyframes.empty()) {
         math::Vec3 offset = finalPos - originalClipTranslation_;
@@ -185,8 +186,8 @@ void MoveAction::onComplete() {
                                               + unit_->baseOffset())
                        * clipMat * math::Mat4::rotation(toRot_));
     } else {
-        node->setLocal(math::Mat4::translation(finalPos) *
-                       math::Mat4::scale(math::Vec3(0.56f)) *
+        node->setLocal(math::Mat4::translation(finalPos + unit_->baseOffset()) *
+                       math::Mat4::scale(math::Vec3(unit_->baseScale())) *
                        math::Mat4::rotation(toRot_));
     }
 
@@ -200,6 +201,25 @@ void MoveAction::onComplete() {
         if (rig_.elbowL) rig_.elbowL->setLocal(rig_.elbowLRest);
         if (rig_.elbowR) rig_.elbowR->setLocal(rig_.elbowRRest);
     }
+}
+
+namespace {
+
+void deliverHit(game::Unit* target, int damage, const anim::Clip* reaction,
+                const anim::SkeletalClip* skelReaction, const AttackAction::HitCallback& cb) {
+    target->takeDamage(damage);
+    target->applyStatus({unit::StatusType::Poisoned, 3, 1});
+    if (cb) cb();
+    if (target->isDead()) return;
+    const anim::SkeletalClip* skel = skelReaction ? skelReaction : target->clips().hurt;
+    if (skel && target->isSkinned()) {
+        target->playClip(skel);
+    } else if (reaction && target->node()) {
+        target->node()->setClip(reaction);
+        target->node()->setTime(0.0f);
+    }
+}
+
 }
 
 AttackAction::AttackAction(game::Unit *attacker, game::Unit *target,
@@ -221,6 +241,8 @@ AttackAction::AttackAction(game::Unit *attacker, game::Unit *target,
     assert(target_ != nullptr);
     assert(damage_ > 0);
     assert(delay_ >= 0.0f);
+    if (!attackClip_ && !skeletalAttackClip_ && attacker_->isSkinned())
+        skeletalAttackClip_ = attacker_->clips().attack;
     if (attackClip_) {
         for (const auto& ev : attackClip_->events)
             if (ev.id == 1) { hitTime_ = ev.time; break; }
@@ -234,7 +256,9 @@ AttackAction::AttackAction(game::Unit *attacker, game::Unit *target,
 void AttackAction::start() {
     elapsed_ = 0.0f;
     *hitDelivered_ = false;
-    auto* node = attacker_->node();
+    const bool skeletal = skeletalAttackClip_ && attacker_->isSkinned();
+    animNode_ = skeletal ? attacker_->visualNode() : attacker_->node();
+    auto* node = animNode_;
     if (node == nullptr) return;
 
     savedClip_ = node->clip();
@@ -243,7 +267,7 @@ void AttackAction::start() {
     savedCallback_ = node->animEventCallback();
     savedPlaybackRate_ = 1.0f;
 
-    if (skeletalAttackClip_ && node->skeleton()) {
+    if (skeletal) {
         node->setSkeletalClip(skeletalAttackClip_);
     } else if (attackClip_) {
         node->setClip(attackClip_);
@@ -262,21 +286,8 @@ void AttackAction::start() {
                                 delivered, hitCb](int id) {
         if (id != 1 || *delivered || rawTarget == nullptr || rawTarget->isDead()) return;
         *delivered = true;
-        rawTarget->takeDamage(rawDamage);
-        rawTarget->applyStatus({unit::StatusType::Poisoned, 3, 1});
-        if (hitCb) hitCb();
-        auto* tnode = rawTarget->node();
-        if (tnode) {
-            if (skelReaction && tnode->skeleton()) {
-                tnode->setSkeletalClip(skelReaction);
-            } else if (reactionClip) {
-                tnode->setClip(reactionClip);
-            }
-            tnode->setTime(0.0f);
-        }
-        aout << "[action] HIT via event  atk_time=" << rawAttacker->time()
-             << " hit_time=" << (rawAttacker->time() >= 0.14f && rawAttacker->time() <= 0.16f ? "ok" : "DRIFT")
-             << std::endl;
+        deliverHit(rawTarget, rawDamage, reactionClip, skelReaction, hitCb);
+        aout << "[action] HIT via event  atk_time=" << rawAttacker->time() << std::endl;
         s_lastEventAtkTime = rawAttacker->time();
     });
 }
@@ -284,8 +295,7 @@ void AttackAction::start() {
 void AttackAction::update(float dt) {
     if (isDone()) return;
     elapsed_ += dt;
-    auto* node = attacker_->node();
-    if (node != nullptr) node->setTime(elapsed_);
+    if (animNode_ != nullptr) animNode_->setTime(elapsed_);
     if (!*hitDelivered_ && hitTime_ >= 0.0f && elapsed_ >= hitTime_) {
         aout << "[action] HIT via timer  atk_time=" << elapsed_
              << " hit_time=" << hitTime_ << std::endl;
@@ -298,13 +308,7 @@ bool AttackAction::isDone() const {
         float dur = delay_;
         if (attackClip_ && !attackClip_->keyframes.empty())
             dur = std::max(dur, attackClip_->keyframes.back().time);
-        if (skeletalAttackClip_ && !skeletalAttackClip_->tracks.empty()) {
-            float maxT = 0.0f;
-            for (const auto& trk : skeletalAttackClip_->tracks)
-                if (!trk.keyframes.empty() && trk.keyframes.back().time > maxT)
-                    maxT = trk.keyframes.back().time;
-            dur = std::max(dur, maxT);
-        }
+        if (skeletalAttackClip_) dur = std::max(dur, anim::duration(*skeletalAttackClip_));
         return elapsed_ >= dur;
     }
     return elapsed_ >= delay_;
@@ -313,15 +317,13 @@ bool AttackAction::isDone() const {
 void AttackAction::applyDamage() {
     if (*hitDelivered_ || target_ == nullptr) return;
     *hitDelivered_ = true;
-    target_->takeDamage(damage_);
-    target_->applyStatus({unit::StatusType::Poisoned, 3, 1});
-    if (hitCb_) hitCb_();
+    deliverHit(target_, damage_, hitReactionClip_, skeletalHitReaction_, hitCb_);
 }
 
 void AttackAction::onComplete() {
     if (!*hitDelivered_) applyDamage();
 
-    auto* node = attacker_->node();
+    auto* node = animNode_;
     if (node) {
         node->setAnimEventCallback(std::move(savedCallback_));
         savedCallback_ = nullptr;
@@ -572,6 +574,72 @@ void Manager::selfTest() {
         assert(mgr.isIdle());
         assert(rig->skeletalClip() == &idle);
         assert(u.cell().x == 1);
+    }
+
+    {
+        grid::BattleGrid g(4, 4, 1.0f);
+        anim::Skeleton skel;
+        skel.bones.resize(1);
+        auto clip = [](float len, bool loop) {
+            anim::SkeletalClip c;
+            c.loop = loop;
+            c.tracks.push_back({0, {{0.0f, math::Vec3(0.0f), math::Quat::identity(), math::Vec3(1.0f)},
+                                    {len, math::Vec3(0.0f), math::Quat::identity(), math::Vec3(1.0f)}}});
+            return c;
+        };
+        const anim::SkeletalClip idle = clip(1.0f, true), walk = clip(1.0f, true),
+                                 hurt = clip(0.4f, false), death = clip(0.8f, false);
+        anim::SkeletalClip atk = clip(0.6f, false);
+        atk.events.push_back({0.35f, 1});
+        const unit::ClipSet set{&idle, &walk, &atk, &hurt, &death};
+        SceneNode root;
+        auto skinned = [&](unit::Faction f, unit::Stats st, int x) {
+            auto u = std::make_unique<game::Unit>(root.addChild(), f, st);
+            SceneNode* v = u->node()->addChild();
+            v->setSkeleton(&skel);
+            v->setSkeletalClip(&idle);
+            u->setVisualNode(v);
+            u->setClips(set);
+            u->setCell(math::Vec2(static_cast<float>(x), 0.0f));
+            return u;
+        };
+        auto a = skinned(unit::Faction::Player, {10, 6, 0, 4, 1}, 0);
+        auto b = skinned(unit::Faction::Enemy, {10, 5, 3, 3, 1}, 2);
+
+        Manager mgr;
+        mgr.enqueue(std::make_unique<MoveAction>(a.get(), &g, std::vector<math::Vec2>{{0, 0}, {1, 0}}, 0.2f));
+        mgr.update(0.05f);
+        assert(a->visualNode()->skeletalClip() == &walk);
+        const math::Vec3 sx(a->visualNode()->world().m[0], a->visualNode()->world().m[1], a->visualNode()->world().m[2]);
+        assert(math::approxEqual(sx.length(), 1.0f, 1e-4f));
+        for (int i = 0; i < 10; ++i) mgr.update(0.05f);
+        assert(mgr.isIdle());
+        assert(a->visualNode()->skeletalClip() == &idle);
+        const math::Vec3 fwd = a->visualNode()->world().transformDirection(math::Vec3(0, 0, -1));
+        assert(fwd.x > 0.999f);
+
+        const int dmg = unit::damage(a->stats(), b->stats());
+        mgr.enqueue(std::make_unique<AttackAction>(a.get(), b.get(), dmg));
+        bool sawAttack = false;
+        for (int i = 0; i < 12; ++i) {
+            root.update(0.05f);
+            mgr.update(0.05f);
+            if (a->visualNode()->skeletalClip() == &atk) sawAttack = true;
+            if (b->hp() < 10) {
+                assert(b->visualNode()->skeletalClip() == &hurt);
+                break;
+            }
+        }
+        assert(sawAttack);
+        assert(b->hp() == 10 - dmg);
+        while (!mgr.isIdle()) { root.update(0.05f); mgr.update(0.05f); }
+        assert(a->visualNode()->skeletalClip() == &idle);
+        for (int i = 0; i < 10; ++i) { root.update(0.05f); b->update(0.05f); }
+        assert(b->visualNode()->skeletalClip() == &idle);
+
+        mgr.enqueue(std::make_unique<AttackAction>(a.get(), b.get(), b->hp()));
+        while (!mgr.isIdle()) { root.update(0.05f); mgr.update(0.05f); }
+        assert(b->isDead() && b->visualNode()->skeletalClip() == &death);
     }
 
     aout << "[action] self-test PASS" << std::endl;

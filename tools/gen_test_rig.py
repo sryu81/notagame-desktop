@@ -1,4 +1,4 @@
-"""Write assets/test_rig.glb: a 15-joint box humanoid with Idle/Walk/Attack/Hurt.
+"""Write assets/test_rig.glb: a 15-joint box humanoid with Idle/Walk/Attack/Hurt/Death.
 
 Every value is fixed so AnimLab can assert exact numbers (DEMO_PLAN P2.5).
 One mesh, one primitive, rigid skinning (one box per joint, weight 1.0),
@@ -113,6 +113,13 @@ def clips():
         "Hurt": (0.4, [
             ("Spine", "rotation",
              lambda t: quat_x(piecewise([(0.0, 0.0), (0.1, -15.0), (0.4, 0.0)], t))),
+        ]),
+        "Death": (0.8, [
+            ("Hips", "translation",
+             lambda t: (hips[0], piecewise([(0.0, hips[1]), (0.8, 0.25)], t), hips[2])),
+            ("Hips", "rotation", lambda t: quat_x(piecewise([(0.0, 0.0), (0.8, -80.0)], t))),
+            ("UpperLeg.L", "rotation", lambda t: quat_x(piecewise([(0.0, 0.0), (0.8, 70.0)], t))),
+            ("UpperLeg.R", "rotation", lambda t: quat_x(piecewise([(0.0, 0.0), (0.8, 70.0)], t))),
         ]),
     }
 

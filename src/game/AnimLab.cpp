@@ -306,7 +306,7 @@ void AnimLab::checkStatic() {
     int legJoints = 0;
     for (const char* n : {"UpperLeg.L", "LowerLeg.L", "Foot.L", "UpperLeg.R", "LowerLeg.R", "Foot.R"})
         if (skel_.find(n) >= 0) ++legJoints;
-    checks_->check(kRigLoaded, rigLoaded_ && skel_.bones.size() == 15 && clips_.size() == 4 &&
+    checks_->check(kRigLoaded, rigLoaded_ && skel_.bones.size() == 15 && clips_.size() == 5 &&
                                legJoints == 6);
     if (!rigLoaded_) return;
 

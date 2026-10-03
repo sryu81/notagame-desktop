@@ -7,6 +7,14 @@
 #include <cassert>
 #include <cstring>
 
+namespace unit {
+
+int damage(const Stats& attacker, const Stats& target) {
+    return std::max(1, attacker.atk - target.def);
+}
+
+} // namespace unit
+
 namespace game {
 
 Unit::Unit(SceneNode* node, unit::Faction faction, const unit::Stats& stats)
@@ -51,6 +59,10 @@ void Unit::takeDamage(int amount) {
     if (amount <= 0 || isDead()) return;
     hp_ -= amount;
     if (hp_ < 0) hp_ = 0;
+    if (hp_ == 0) {
+        selected_ = false;
+        playClip(clips_.death);
+    }
 }
 
 void Unit::heal(int amount) {
@@ -60,7 +72,20 @@ void Unit::heal(int amount) {
 }
 
 void Unit::setSelected(bool sel) {
-    selected_ = sel;
+    selected_ = sel && !isDead();
+}
+
+bool Unit::isSkinned() const {
+    const SceneNode* v = visualNode();
+    return v != nullptr && v->skeleton() != nullptr;
+}
+
+void Unit::playClip(const anim::SkeletalClip* c) {
+    if (c == nullptr || !isSkinned()) return;
+    SceneNode* v = visualNode();
+    v->setSkeletalClip(c);
+    v->setTime(0.0f);
+    v->setPlaybackRate(1.0f);
 }
 
 void Unit::applyStatus(unit::StatusEffect effect) {
@@ -101,6 +126,10 @@ void Unit::setBaseOffset(const math::Vec3& o) {
 }
 
 void Unit::update(float /*dt*/) {
+    if (!isSkinned() || isDead() || clips_.hurt == nullptr) return;
+    const SceneNode* v = visualNode();
+    if (v->skeletalClip() == clips_.hurt && v->time() >= anim::duration(*clips_.hurt))
+        playClip(clips_.idle);
 }
 
 void Unit::save(engine::SaveWriter& w) const {
@@ -215,6 +244,47 @@ void Unit::selfTest() {
         assert(c.isDead());
         c.heal(5);
         assert(c.isDead());
+        assert(!c.pickable());
+        c.setSelected(true);
+        assert(!c.isSelected());
+    }
+
+    {
+        assert(unit::damage({10, 6, 0, 4, 1}, {10, 5, 3, 3, 1}) == 3);
+        assert(unit::damage({10, 2, 0, 4, 1}, {10, 5, 9, 3, 1}) == 1);
+    }
+
+    {
+        anim::Skeleton skel;
+        skel.bones.resize(1);
+        auto clip = [](float len, bool loop) {
+            anim::SkeletalClip c;
+            c.loop = loop;
+            c.tracks.push_back({0, {{0.0f, math::Vec3(0.0f), math::Quat::identity(), math::Vec3(1.0f)},
+                                    {len, math::Vec3(0.0f), math::Quat::identity(), math::Vec3(1.0f)}}});
+            return c;
+        };
+        const anim::SkeletalClip idle = clip(1.0f, true), hurt = clip(0.4f, false),
+                                 death = clip(0.8f, false);
+        SceneNode root;
+        Unit u(&root, unit::Faction::Enemy, unit::Stats{5, 1, 0, 3, 1});
+        assert(u.visualNode() == &root);
+        assert(!u.isSkinned());
+        SceneNode* vis = root.addChild();
+        vis->setSkeleton(&skel);
+        u.setVisualNode(vis);
+        u.setClips({&idle, nullptr, nullptr, &hurt, &death});
+        assert(u.isSkinned());
+        u.playClip(&hurt);
+        assert(vis->skeletalClip() == &hurt);
+        for (int i = 0; i < 5; ++i) { root.update(0.1f); u.update(0.1f); }
+        assert(vis->skeletalClip() == &idle);
+        u.setSelected(true);
+        u.takeDamage(5);
+        assert(vis->skeletalClip() == &death);
+        assert(!u.isSelected() && !u.pickable());
+        for (int i = 0; i < 20; ++i) { root.update(0.1f); u.update(0.1f); }
+        assert(vis->skeletalClip() == &death);
     }
 
     {

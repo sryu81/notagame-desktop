@@ -406,6 +406,10 @@ reproducible from a checked-in `scripts/verify/*.txt`.
 
 #### P2b.1 UnitLab — skinned units as game objects
 
+Status: done 2026-10-03, 8/8 rows green in ASan auto-drive. `test_rig.glb`
+gained a one-shot `Death` clip; `unit::damage` holds the attack formula;
+`Unit::pickable()` replaces the battle's dead check.
+
 Promotes: `game/UnitSpawner` (skinned spawn path in `unit::spawn`),
 facing correction, `MoveAction` cleanup. Builds on AnimLab's rig.
 
@@ -598,7 +602,7 @@ Open decisions (from the review):
 
 ## 6. Suggested order
 
-Done: P0, P1, P2.1–P2.5.
+Done: P0, P1, P2.1–P2.5, H1, P2b.1 UnitLab.
 
 1. H1 scripted input harness (`--script`, `--start`).
 2. UnitLab (U1–U3) — everything else spawns units through it.

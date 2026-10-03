@@ -112,7 +112,7 @@ Platform-specific (do NOT copy verbatim; Android needs its own impl):
 | `Renderer(Platform&)`, `pointerDown/Move/Up`, `scroll` | Android `main.cpp` must translate motion events → these calls; pinch → `zoomBy` (pinch state was removed from Renderer) |
 | `TextureAsset` (stb_image) | either vendor stb_image on Android too, or keep AImageDecoder behind `Platform` bytes |
 | `Audio_miniaudio.cpp` | keep `Audio_oboe.cpp`, port to `Audio::init(const Platform*)`; also implement `isOpen`, `activeVoiceCount`, `currentMusic`, `outputPeak` (store `audio::peakAbs` of each mixed buffer) |
-| `AndroidOut.cpp` (stderr) | restore `__android_log_print` under `#ifdef __ANDROID__` |
+| `AndroidOut.cpp` | shared; `__android_log_print` under `#ifdef __ANDROID__` (done) |
 | `src/desktop/main.cpp`, `ScriptRunner`, `PngWriter` | stay desktop-only; sync selfTest list with Android `main.cpp` |
 
 Everything else in `src/engine` and `src/game` is portable — diff and copy.
@@ -206,6 +206,15 @@ Fixes made here that upstream lacks (keep this list current):
 Easiest merge path: in notagame, add the same `Platform` seam first, then
 `diff -r src/engine ../notagame/engine-module/src/main/cpp/engine`.
 
+Merged 2026-10-03 at desktop `99c77b3` → notagame branch `desktop-merge`
+(`a662017`, not on its `main`; its pre-merge WIP is `stash@{0}` there).
+After that, `src/engine` and the Android engine differ only in
+`Audio_miniaudio.cpp` vs `Audio_oboe.cpp`; `AndroidOut.cpp` is shared
+(`__ANDROID__` → logcat). Android build without network:
+`$ANDROID_HOME/cmake/3.22.1/bin/ninja -C app/.cxx/Debug/<hash>/x86_64`;
+APK: `./gradlew assembleDebug`; emulator: `Pixel_8` AVD (headless
+`-no-window` works; screencap via `adb exec-out screencap -p`).
+
 ---
 
 ## Session handoff
@@ -222,5 +231,6 @@ Verified: 47 selfTests PASS; title + battle render at 60 FPS on Mesa radeonsi
 Done: P0 B1–B8, P1 (hub, DebugPanel, LabChecklist, battle split, LabAssets),
 P2.1–P2.5 labs, H1 scripted harness, P2b.1 UnitLab, P2b.2 TacticsLab,
 P2b.3 AILab, P2b.4 LevelLab, P2b.5 F1/C1/X1, P2b.6 UILab, P3 battle.
-Next: P4 engine gaps as needed (DEMO_PLAN §3 P4), balance the default
-roster/levels (AILab metrics), merge back to Android.
+Merged to Android (`desktop-merge` branch, emulator-verified).
+Next: review/merge `desktop-merge` into notagame `main`; P4 engine gaps
+as the battle needs them (DEMO_PLAN §3 P4).

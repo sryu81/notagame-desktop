@@ -8,7 +8,8 @@ namespace game { class GameState; }
 
 class BattleScene : public Scene {
 public:
-    explicit BattleScene(game::GameState& gs) : gs_(gs) {}
+    BattleScene(game::GameState& gs, int levelId = 1, bool autoBattle = false)
+        : gs_(gs), levelId_(levelId), autoBattle_(autoBattle) {}
     void enter(Renderer& r) override;
     void exit(Renderer& r) override;
     void update(float dt, Renderer& r) override;
@@ -18,6 +19,8 @@ public:
 
 private:
     game::GameState& gs_;
+    int levelId_;
+    bool autoBattle_;
 };
 
 #endif //NOT_A_GAME_BATTLESCENE_H

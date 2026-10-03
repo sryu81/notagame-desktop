@@ -595,6 +595,26 @@ Promotes: `game/ui` widgets (action menu, unit card, turn-order bar).
 
 ### P3 — Data-driven BattleScene (integration)
 
+Status: done 2026-10-03. Auto-battle (HILL, AI vs AI) reaches the result
+scene under `--script` with 6/6 battle rows green in the ASan run; PLAY
+mode checked by hand-scripted taps (MOVE → cell → WAIT). Decisions taken
+(the recommended ones): facing via `UnitDef::modelYawDeg`; `Saveable` +
+unit ids (`battle_<level>.sav`, SAVE/LOAD buttons, no auto-load); HUD
+reduced to SPEED / AUTO / SAVE / LOAD / BACK plus the UILab widgets (the
+old TIME/CAMERA/AUDIO/PARTICLES/SKY/WEATHER/SCENE panels and LAND presets
+are gone — the labs cover them); turns end on action completion
+(`BattleFlow`); cube rigs kept as the fallback when `test_rig.glb` is
+missing. Battle files: `BattleData.h`, `BattleContent.cpp` (level, rig,
+catalog, spawn, terrain, camera), `BattleTurns.cpp` (turn loop, AI,
+player actions, tally, result, saves, picking; replaces
+`BattleRules.cpp`), `BattleHUD.cpp`, `BattleInput.cpp`,
+`BattleScene.cpp`; `LevelSelectScene` (LEVEL, MODE PLAY/AUTO, START).
+Archers' shots stun for one turn (the stun skill); melee keeps poison.
+Fallen roster units return at 1 HP. Not done: camera follow during a
+move (it re-centres on the acting unit at turn start and frames attacks).
+First auto-battle on HILL: DEFEAT in round 5, 12 moves, 13 attacks,
+3 stun skips — the enemy side is strong on that map.
+
 Status: reviewed 2026-09-26. P3 is **wiring only**: every rule, spawner,
 AI and UI piece comes from a P2b module. Findings from the review that
 P2b must cover (item → owner): battle spawns no units today (LevelLab,
@@ -663,7 +683,7 @@ Open decisions (from the review):
 
 ## 6. Suggested order
 
-Done: P0, P1, P2.1–P2.5, H1, P2b.1–P2b.6 (all labs).
+Done: P0, P1, P2.1–P2.5, H1, P2b.1–P2b.6 (all labs), P3.
 
 1. H1 scripted input harness (`--script`, `--start`).
 2. UnitLab (U1–U3) — everything else spawns units through it.

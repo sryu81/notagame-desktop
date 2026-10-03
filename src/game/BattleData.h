@@ -1,18 +1,24 @@
 #ifndef NOT_A_GAME_BATTLE_DATA_H
 #define NOT_A_GAME_BATTLE_DATA_H
 
-#include <deque>
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
 
+#include "AI.h"
 #include "Action.h"
+#include "BattleFlow.h"
+#include "BattleFx.h"
 #include "BattleGrid.h"
 #include "Climate.h"
 #include "DebugPanel.h"
 #include "Engine.h"
 #include "EntityRegistry.h"
+#include "GameUI.h"
 #include "LabAssets.h"
+#include "LabChecklist.h"
+#include "LevelLoader.h"
 #include "Turn.h"
 #include "UnitCatalog.h"
 
@@ -22,84 +28,85 @@ namespace battle {
 
 inline constexpr float kCameraFovYRadians = 30.0f * math::PI / 180.0f;
 inline constexpr float kCameraNearPlane   = 0.1f;
-inline constexpr float kCameraFarPlane    = 100.0f;
-inline constexpr int   kLandscapeCount    = 6;
+inline constexpr float kCameraFarPlane    = 120.0f;
+inline constexpr int   kLevelCount        = 3;
 
-enum HudPanel { kPanelTime, kPanelCamera, kPanelAudio, kPanelParticles,
-                kPanelSky, kPanelWeather, kPanelScene, kPanelCount };
+const char* levelName(int levelId);
+
+enum class Mode { Menu, ChooseMove, ChooseTarget, Busy };
+
+struct Tally {
+    int moves = 0;
+    int badMoves = 0;
+    int attacks = 0;
+    int badAttacks = 0;
+    int stunnedActed = 0;
+    size_t skips = 0;
+};
 
 struct Data {
+    int  levelId = 1;
+    bool autoBattle = false;
+    level::Level level;
+
     std::unique_ptr<game::LabAssets> assets;
     const Material* litMat   = nullptr;
     const Material* unlitMat = nullptr;
+    anim::Skeleton skeleton;
+    std::map<std::string, anim::SkeletalClip> clips;
+    asset::Handle rigMesh = asset::kNull;
+    asset::Handle terrainMesh = asset::kNull;
+    game::UnitCatalog catalog;
 
     std::unique_ptr<SceneNode> root;
-    std::unique_ptr<SceneNode> shadowRoot;
-    std::unique_ptr<SceneNode> pathOverlay;
-    std::unique_ptr<SceneNode> selectionIndicator;
+    std::unique_ptr<SceneNode> overlay;
+    std::unique_ptr<SceneNode> ring;
+    SceneNode* projRoot = nullptr;
 
-    std::unique_ptr<game::EntityRegistry> registry;
     std::unique_ptr<grid::BattleGrid> grid;
-    std::unique_ptr<turn::Manager> turnManager;
-    std::unique_ptr<action::Manager> actionManager;
-    game::UnitCatalog unitCatalog;
-    std::deque<anim::Clip> unitClips;
-    anim::Clip attackClip;
-    anim::Clip hitReactionClip;
-    anim::SkeletalClip skinnedAttackClip;
-    anim::SkeletalClip skinnedHitReaction;
-    anim::Skeleton skinnedSkeleton;
+    std::unique_ptr<game::EntityRegistry> registry;
+    std::vector<game::Unit*> units;
+    std::vector<std::string> names;
+    size_t propCount = 0;
+    std::unique_ptr<turn::Manager> turns;
+    std::unique_ptr<action::Manager> actions;
+    std::unique_ptr<flow::BattleFlow> flow;
+    rules::Tunables tun;
+    std::unique_ptr<ai::Rng> rng;
+
+    game::Unit* turnUnit = nullptr;
+    gui::TurnState turnState;
+    Mode mode = Mode::Menu;
+    int aiPhase = 0;
+    ai::Plan aiPlan;
+    std::vector<math::Vec2> highlight;
+    const game::Unit* selected = nullptr;
+    flow::Outcome outcome = flow::Outcome::Ongoing;
+    float resultTimer = 0.0f;
+    bool resultChecked = false;
+    bool spawnedOk = false;
+    Tally tally;
     std::string savePath;
+    float speed = 1.0f;
+    int speedIdx = 1;
 
-    particle::Emitter particleEmitter;
-    particle::Emitter rainEmitter{1024};
-    float rainAccum  = 0.0f;
-    float burstTimer = 0.0f;
-
-    game::Unit* lastTurnUnit = nullptr;
-    game::Unit* movingUnit   = nullptr;
-    bool  wasActionIdle   = true;
-    bool  camReturnActive = false;
-    float camReturnTimer  = 0.0f;
-    math::Vec3 preMoveCamTarget{0.0f};
-
-    int landscapeIdx = 0;
-    std::vector<asset::Handle> terrainHandles;
-    std::vector<std::vector<float>> landscapeCellY;
-    SceneNode* terrainNode = nullptr;
-    std::vector<SceneNode*> tileNodes;
+    particle::Emitter particles;
+    particle::Emitter rain{1024};
+    particle::Emitter trail{256};
+    float rainAccum = 0.0f;
+    fx::FloatingTexts numbers;
+    fx::StatusIcons icons;
 
     std::unique_ptr<ui::UIRoot> ui;
-    ui::UIText* turnBanner = nullptr;
-    ui::UIText* fpsText    = nullptr;
-    ui::UIText* debugText  = nullptr;
-    ui::UIText* timeText   = nullptr;
-    std::unique_ptr<game::DebugPanel> hudMenu;
-    std::unique_ptr<game::DebugPanel> hudPanels[kPanelCount];
-    int   hudOpen = kPanelTime;
+    ui::UIText* banner  = nullptr;
+    ui::UIText* fpsText = nullptr;
+    gui::ActionMenu menu;
+    gui::UnitCard card;
+    gui::TurnOrderBar bar;
+    std::unique_ptr<game::DebugPanel> hud;
+    std::unique_ptr<game::LabChecklist> checks;
     float fpsAccum  = 0.0f;
     int   fpsFrames = 0;
-    int   boneCount = 0;
-
-    int speedPreset       = 2;
-    int wxPreset          = 0;
-    int camOrbitPreset    = 0;
-    int camFovPreset      = 1;
-    int camSensPreset     = 1;
-    int masterPreset      = 4;
-    int musicPreset       = 2;
-    int sfxPreset         = 4;
-    int partGravityPreset = 2;
-    int partUpVelPreset   = 2;
-    int partShrinkPreset  = 1;
-    int skyNightPreset    = 2;
-    int skyDawnPreset     = 2;
-    int skyNoonPreset     = 2;
-    int skyAmbientPreset  = 2;
-    int wxFlashPreset     = 2;
-    int wxDecayPreset     = 2;
-    int wxIntervalPreset  = 2;
-    int wxJitterPreset    = 2;
 
     std::vector<EventBus::SubscriptionId> subs;
 
@@ -111,29 +118,24 @@ struct Data {
 };
 
 Data& d();
-int& pendingLandscapeIdx();
 
 void createContent(Renderer& r, game::GameState& gs);
-void setLandscape(int idx);
 
 void buildHUD(Renderer& r, game::GameState& gs);
-void updateHUD(float dt);
-void refreshTimeText();
+void updateHUD(float dt, Renderer& r);
 
 void handlePointerDown(float x, float y, Renderer& r);
 
-void setPathOverlay(const std::vector<math::Vec2>& path);
-void refreshSelectionOverlay();
-void enqueueMove(game::Unit* u, std::vector<math::Vec2> path);
-void enqueueAttack(game::Unit* attacker, game::Unit* target);
+void updateTurns(float dt, Renderer& r, game::GameState& gs);
+void addChecklistRows(game::LabChecklist& c);
+void onMenuAction(gui::Action a);
+bool playerControls(const game::Unit* u);
+void playerMove(const math::Vec2& cell);
+void playerAttack(game::Unit* target);
+void showHighlight(const std::vector<math::Vec2>& cells, const math::Vec3& color);
 game::Unit* pickUnit(float x, float y, Renderer& r);
-math::Vec2 cellAtScreen(float x, float y, Renderer& r);
-bool isPlayerTurn();
-std::vector<game::Unit*> charactersAll();
-size_t charactersAliveCount();
-game::Unit* selectedUnit();
-void placeUnitAtCell(game::Unit* u);
-void tickTurnStart();
+bool cellAtScreen(float x, float y, Renderer& r, math::Vec2& out);
+game::Unit* unitAtCell(const math::Vec2& c);
 void saveGame();
 void loadGame();
 

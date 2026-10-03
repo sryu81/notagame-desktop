@@ -1,5 +1,6 @@
 #include "GameState.h"
 
+#include <algorithm>
 #include <cassert>
 
 #include "Engine.h"
@@ -45,7 +46,7 @@ void GameState::restoreTo(EntityRegistry& reg) {
         }
         if (!u) continue;
         u->heal(u->maxHp());
-        if (s.hp < s.maxHp) u->takeDamage(u->maxHp() - s.hp);
+        if (s.hp < s.maxHp) u->takeDamage(u->maxHp() - std::max(1, s.hp));
         u->inventory() = s.inventory;
         u->equipment() = s.equipment;
     }

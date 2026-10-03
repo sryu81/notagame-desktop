@@ -6,7 +6,7 @@ set -uo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 build="$root/build-asan"
 out="$(mkdir -p "${1:-$build/verify}" && cd "${1:-$build/verify}" && pwd)"
-labs=(renderlab animlab fxlab cameralab systemslab unitlab tacticslab levellab ailab uilab)
+labs=(renderlab animlab fxlab cameralab systemslab unitlab tacticslab levellab ailab uilab battle)
 
 [[ -f "$build/build.ninja" ]] || cmake -S "$root" -B "$build" -G Ninja -DNAG_SANITIZE=ON >/dev/null
 cmake --build "$build" || exit 1
@@ -32,6 +32,7 @@ for lab in "${labs[@]}"; do
     read -r got want <<<"$counts"
     if [[ "$got" == "$want" ]]; then echo "ok   $lab $got/$want"; else echo "FAIL: $lab $got/$want"; fail=1; fi
 done
-grep -q "\[level\] loaded" "$out/log.txt" || { echo "FAIL: battle level not loaded"; fail=1; }
+grep -q "\[level\] loaded level_" "$out/log.txt" || { echo "FAIL: battle level not loaded"; fail=1; }
+grep -qE "\[result\] (VICTORY|DEFEAT) HILL" "$out/log.txt" || { echo "FAIL: battle never reached the result scene"; fail=1; }
 echo "log + screenshots: $out"
 exit $fail

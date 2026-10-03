@@ -15,6 +15,7 @@
 #include "AILab.h"
 #include "AnimLab.h"
 #include "BattleScene.h"
+#include "LevelSelectScene.h"
 #include "CameraLab.h"
 #include "FxLab.h"
 #include "HubScene.h"
@@ -166,6 +167,8 @@ fs::path defaultDataRoot() {
 std::unique_ptr<Scene> makeStartScene(const std::string& name, game::GameState& gs) {
     if (name == "hub")        return std::make_unique<HubScene>(gs);
     if (name == "battle")     return std::make_unique<BattleScene>(gs);
+    if (name == "autobattle") return std::make_unique<BattleScene>(gs, 2, true);
+    if (name == "levels")     return std::make_unique<LevelSelectScene>(gs);
     if (name == "renderlab")  return std::make_unique<RenderLab>(gs);
     if (name == "animlab")    return std::make_unique<AnimLab>(gs);
     if (name == "fxlab")      return std::make_unique<FxLab>(gs);

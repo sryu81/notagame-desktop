@@ -21,7 +21,7 @@ cmake --build build                   # incremental; new .cpp files picked up by
 ./build/not_a_game --assets ./assets  # asset dir (default <exe dir>/assets symlink)
 scripts/rebuild_run.sh                # rm -rf build, configure, build, launch
 scripts/rebuild_run.sh --asan -- --data ./save   # same in build-asan; args after -- go to game
-./build/not_a_game --start fxlab      # start scene: title hub battle renderlab animlab fxlab cameralab systemslab unitlab tacticslab levellab ailab uilab
+./build/not_a_game --start fxlab      # start scene: title hub levels battle autobattle renderlab animlab fxlab cameralab systemslab unitlab tacticslab levellab ailab uilab
 ./build/not_a_game --script f.txt     # scripted input: "<frame> tap|down|move|up x y", "key code", "shot f.png", "quit"
 scripts/verify/run_labs.sh [out]      # ASan build, every lab auto-drive, fails on red check or sanitizer report
 ```
@@ -61,10 +61,13 @@ tools/gen_test_rig.py  generates assets/test_rig.glb (15-joint box humanoid)
 art/                   source art, not shipped (robot1.blend, robot1.glb)
 ```
 
-Game scenes: `TitleScene` → `HubScene` (lab list + BATTLE) → `BattleScene`.
-Battle is split into `BattleData.h` (shared `battle::Data`),
-`BattleContent` (assets/level), `BattleRules` (paths, attacks, pick, save),
-`BattleInput` (taps), `BattleHUD` (DebugPanel menus), `BattleScene` (lifecycle).
+Game scenes: `TitleScene` → `HubScene` (lab list + BATTLE) →
+`LevelSelectScene` (level, PLAY/AUTO) → `BattleScene(gs, levelId, auto)` →
+`ResultScene` → Hub. Battle is split into `BattleData.h` (shared
+`battle::Data`), `BattleContent` (level, rig, catalog, spawn, terrain,
+camera), `BattleTurns` (turn loop, AI, player actions, battle checklist,
+result, saves, picking), `BattleInput` (taps), `BattleHUD` (game UI +
+SPEED/AUTO/SAVE/LOAD/BACK), `BattleScene` (lifecycle, environment).
 Labs: `FxLab` (particles/sky/weather,
 damage number, status icon, trail, 15 checks), `CameraLab` (orbit/limits/
 ortho/forward/follow/pick/input, frame attack, pan clamp, portrait fit,
@@ -187,6 +190,12 @@ Fixes made here that upstream lacks (keep this list current):
 - `game/BattleFx`: floating damage numbers, status icons, projectile trail.
 - `game/GameUI` (`gui::`): responsive `Layout`, `legalActions`,
   `ActionMenu`, `UnitCard`, `TurnOrderBar`.
+- P3 battle: data-driven from `.lvl` v3 + catalog (skinned `test_rig.glb`
+  units), `game/Rules` + `game/AI` + `BattleFlow` turn loop, AUTO mode
+  (AI vs AI to `ResultScene`), battle checklist (6 rows), per-level
+  `Saveable` save. Upstream's `BattleRules.cpp`, fixed-struct save, LAND
+  presets and tuning panels are removed. `GameState::restoreTo` brings
+  fallen units back at 1 HP.
 - Font: punctuation glyphs (`. : % = < > / ( ) , ? * ' _`) and lowercase →
   uppercase shapes. Regenerate with `python3 tools/gen_font.py > src/engine/FontData.h`
   (`tools/gen_font.py` is copied from upstream and extended).
@@ -209,5 +218,6 @@ Verified: 47 selfTests PASS; title + battle render at 60 FPS on Mesa radeonsi
 
 Done: P0 B1–B8, P1 (hub, DebugPanel, LabChecklist, battle split, LabAssets),
 P2.1–P2.5 labs, H1 scripted harness, P2b.1 UnitLab, P2b.2 TacticsLab,
-P2b.3 AILab, P2b.4 LevelLab, P2b.5 F1/C1/X1, P2b.6 UILab.
-Next: P3 — wire the lab modules into BattleScene (DEMO_PLAN §3 P3, §6).
+P2b.3 AILab, P2b.4 LevelLab, P2b.5 F1/C1/X1, P2b.6 UILab, P3 battle.
+Next: P4 engine gaps as needed (DEMO_PLAN §3 P4), balance the default
+roster/levels (AILab metrics), merge back to Android.

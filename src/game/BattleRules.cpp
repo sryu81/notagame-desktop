@@ -1,4 +1,5 @@
 #include "BattleData.h"
+#include "Rules.h"
 
 #include <algorithm>
 #include <cmath>
@@ -79,8 +80,9 @@ void enqueueMove(game::Unit* u, std::vector<math::Vec2> path) {
 }
 
 void enqueueAttack(game::Unit* attacker, game::Unit* target) {
-    if (!d().actionManager || !attacker || !target) return;
-    const int damage = unit::damage(attacker->stats(), target->stats());
+    if (!d().actionManager || !attacker || !target || !d().grid) return;
+    const int damage = rules::damage(attacker->stats(), target->stats(),
+                                     rules::contextFor(*d().grid, *attacker, *target));
     auto* node = attacker->node();
     auto* targetNode = target->node();
     bool isSkinned = (node && node->skeleton() != nullptr);

@@ -33,8 +33,6 @@ struct ClipSet {
     const anim::SkeletalClip* death   = nullptr;
 };
 
-int damage(const Stats& attacker, const Stats& target);
-
 enum class StatusType { Poisoned, Stunned };
 
 struct StatusEffect {

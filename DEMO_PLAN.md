@@ -438,6 +438,14 @@ Engine/game changes:
 
 #### P2b.2 TacticsLab — rules as deterministic scenarios
 
+Status: done 2026-10-03, 9/9 rows green in ASan auto-drive. `game/Rules`
+holds reachable/pathTo/lineOfSight/damage/canAttack + `Tunables`;
+`BattleGrid::hasLineOfSight` and `unit::damage` are gone. Scenario A uses
+two 3-cell walls (two single-cell walls cannot give 17). Attack range is
+Chebyshev. Stun skip lives in `turn::Manager::advance` (ticks the skipped
+unit's statuses). Left for P3: battle moves still use `path::findPath`
+(cliff 0.4, allies block, no `mov` limit) instead of `rules::pathTo`.
+
 Promotes: `game/Rules` (reachability, LoS, cover, damage, statuses,
 ranged). Each scenario is a tiny hand-built map (5×5–8×8) with an
 expected result; the lab cycles through them and draws the overlay.
@@ -602,7 +610,7 @@ Open decisions (from the review):
 
 ## 6. Suggested order
 
-Done: P0, P1, P2.1–P2.5, H1, P2b.1 UnitLab.
+Done: P0, P1, P2.1–P2.5, H1, P2b.1 UnitLab, P2b.2 TacticsLab.
 
 1. H1 scripted input harness (`--script`, `--start`).
 2. UnitLab (U1–U3) — everything else spawns units through it.

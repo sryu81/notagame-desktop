@@ -50,8 +50,6 @@ public:
     SceneNode* attachTerrainMesh(SceneNode* parent, const Mesh* terrainMesh,
                                  const Model* terrainModel, const Material* mat) const;
 
-    bool hasLineOfSight(const math::Vec2& a, const math::Vec2& b) const;
-
     static void selfTest();
 
 private:

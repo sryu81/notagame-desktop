@@ -18,6 +18,16 @@ void SceneNode::addChild(std::unique_ptr<SceneNode> child) {
     children_.push_back(std::move(child));
 }
 
+bool SceneNode::removeChild(const SceneNode *child) {
+    for (auto it = children_.begin(); it != children_.end(); ++it) {
+        if (it->get() == child) {
+            children_.erase(it);
+            return true;
+        }
+    }
+    return false;
+}
+
 void SceneNode::setLocal(const math::Mat4 &m) {
     local_ = m;
     markDirty();
@@ -111,6 +121,8 @@ void SceneNode::selfTest() {
     // Single child: parent world * child local = child world.
     {
         SceneNode root;
+        SceneNode *gone = root.addChild();
+        assert(root.removeChild(gone) && root.children().empty() && !root.removeChild(gone));
         SceneNode *child = root.addChild();
         const math::Mat4 childLocal =
                 math::Mat4::translation(math::Vec3(1.0f, 0.0f, 0.0f));

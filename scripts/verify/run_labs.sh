@@ -6,7 +6,7 @@ set -uo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 build="$root/build-asan"
 out="$(mkdir -p "${1:-$build/verify}" && cd "${1:-$build/verify}" && pwd)"
-labs=(renderlab animlab fxlab cameralab systemslab unitlab)
+labs=(renderlab animlab fxlab cameralab systemslab unitlab tacticslab)
 
 [[ -f "$build/build.ninja" ]] || cmake -S "$root" -B "$build" -G Ninja -DNAG_SANITIZE=ON >/dev/null
 cmake --build "$build" || exit 1

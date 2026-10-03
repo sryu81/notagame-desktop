@@ -3,9 +3,12 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "Math.h"
+#include "SceneNode.h"
+#include "Unit.h"
 
 namespace anim { class Clip; struct SkeletalClip; }
 namespace grid { class BattleGrid; }
@@ -131,6 +134,7 @@ public:
     const char *name() const override { return "Attack"; }
 
     void setHitCallback(HitCallback cb) { hitCb_ = std::move(cb); }
+    void setStatus(std::optional<unit::StatusEffect> s) { status_ = s; }
 
 private:
     void applyDamage();
@@ -147,6 +151,7 @@ private:
     std::shared_ptr<bool> hitDelivered_ = std::make_shared<bool>(false);
 
     HitCallback hitCb_;
+    std::optional<unit::StatusEffect> status_ = unit::StatusEffect{unit::StatusType::Poisoned, 3, 1};
 
     SceneNode* animNode_ = nullptr;
     const anim::Clip* savedClip_ = nullptr;
@@ -155,6 +160,55 @@ private:
     float savedPlaybackRate_ = 1.0f;
     float hitTime_ = -1.0f;
     std::function<void(int)> savedCallback_;
+};
+
+/*!
+ * Fires a projectile node from the attacker's cell to the target's cell
+ * (straight or arced) and applies damage, the optional status and the
+ * hurt reaction once, on arrival. A skinned attacker plays its attack
+ * clip while the projectile flies.
+ */
+class RangedAttackAction : public Action {
+public:
+    RangedAttackAction(game::Unit *attacker, game::Unit *target, int damage,
+                       const grid::BattleGrid *g, SceneNode *fxParent,
+                       SceneNode::Drawable projectile, bool arc = true, float speed = 6.0f);
+    ~RangedAttackAction() override;
+
+    void start() override;
+    void update(float dt) override;
+    void onComplete() override;
+    bool isDone() const override;
+    const char *name() const override { return "RangedAttack"; }
+
+    void setStatus(std::optional<unit::StatusEffect> s) { status_ = s; }
+    void setHitCallback(AttackAction::HitCallback cb) { hitCb_ = std::move(cb); }
+    float flightTime() const { return flight_; }
+    const SceneNode *projectile() const { return projectile_; }
+    bool hit() const { return hit_; }
+
+private:
+    math::Vec3 positionAt(float s) const;
+    void removeProjectile();
+
+    game::Unit *attacker_;
+    game::Unit *target_;
+    int damage_;
+    const grid::BattleGrid *grid_;
+    SceneNode *fxParent_;
+    SceneNode::Drawable drawable_;
+    bool arc_;
+    float speed_;
+    std::optional<unit::StatusEffect> status_;
+    AttackAction::HitCallback hitCb_;
+    math::Vec3 from_{0.0f};
+    math::Vec3 to_{0.0f};
+    float flight_ = 0.0f;
+    float elapsed_ = 0.0f;
+    float clipDuration_ = 0.0f;
+    bool hit_ = false;
+    SceneNode *projectile_ = nullptr;
+    const anim::SkeletalClip *savedClip_ = nullptr;
 };
 
 /*!

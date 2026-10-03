@@ -19,7 +19,9 @@
 #include "HubScene.h"
 #include "RenderLab.h"
 #include "SystemsLab.h"
+#include "TacticsLab.h"
 #include "UnitLab.h"
+#include "Rules.h"
 #include "TitleScene.h"
 #include "desktop/PngWriter.h"
 #include "desktop/ScriptRunner.h"
@@ -162,6 +164,7 @@ std::unique_ptr<Scene> makeStartScene(const std::string& name, game::GameState& 
     if (name == "cameralab")  return std::make_unique<CameraLab>(gs);
     if (name == "systemslab") return std::make_unique<SystemsLab>(gs);
     if (name == "unitlab")    return std::make_unique<UnitLab>(gs);
+    if (name == "tacticslab") return std::make_unique<TacticsLab>(gs);
     if (name != "title") aout << "[desktop] unknown --start '" << name << "', using title" << std::endl;
     return std::make_unique<TitleScene>(gs);
 }
@@ -225,6 +228,7 @@ int main(int argc, char** argv) {
     anim::selfTest();
     grid::BattleGrid::selfTest();
     path::selfTest();
+    rules::selfTest();
     turn::Manager::selfTest();
     action::Manager::selfTest();
     save::selfTest(platform.dataPath().c_str());

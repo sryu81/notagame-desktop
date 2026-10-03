@@ -7,14 +7,6 @@
 #include <cassert>
 #include <cstring>
 
-namespace unit {
-
-int damage(const Stats& attacker, const Stats& target) {
-    return std::max(1, attacker.atk - target.def);
-}
-
-} // namespace unit
-
 namespace game {
 
 Unit::Unit(SceneNode* node, unit::Faction faction, const unit::Stats& stats)
@@ -247,11 +239,6 @@ void Unit::selfTest() {
         assert(!c.pickable());
         c.setSelected(true);
         assert(!c.isSelected());
-    }
-
-    {
-        assert(unit::damage({10, 6, 0, 4, 1}, {10, 5, 3, 3, 1}) == 3);
-        assert(unit::damage({10, 2, 0, 4, 1}, {10, 5, 9, 3, 1}) == 1);
     }
 
     {

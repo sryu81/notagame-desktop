@@ -71,6 +71,7 @@ public:
     void addChild(std::unique_ptr<SceneNode> child);
 
     void clearChildren() { children_.clear(); }
+    bool removeChild(const SceneNode *child);
 
     void setAnimOffset(const math::Vec3 &o) { animOffset_ = o; }
     const math::Vec3 &animOffset() const { return animOffset_; }

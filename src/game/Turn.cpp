@@ -44,7 +44,7 @@ void Manager::update(float dt) {
     float dur = currentDuration();
     while (elapsed_ >= dur) {
         elapsed_ -= dur;
-        currentIndex_ = (currentIndex_ + 1) % units_.size();
+        advance();
         dur = currentDuration();
     }
     while (isDeadOrNull(units_[currentIndex_]) && hasAliveUnit()) {
@@ -89,9 +89,20 @@ void Manager::restore(int index, float elapsed) {
     elapsed_ = elapsed >= 0.0f ? elapsed : 0.0f;
 }
 
+void Manager::advance() {
+    currentIndex_ = (currentIndex_ + 1) % units_.size();
+    for (size_t guard = 0; guard < units_.size(); ++guard) {
+        game::Unit *u = units_[currentIndex_];
+        if (u == nullptr || u->isDead() || !u->isStunned()) break;
+        u->tickStatuses();
+        ++skipped_;
+        currentIndex_ = (currentIndex_ + 1) % units_.size();
+    }
+}
+
 void Manager::endTurn() {
     if (units_.empty()) return;
-    currentIndex_ = (currentIndex_ + 1) % units_.size();
+    advance();
     elapsed_ = 0.0f;
     if (units_[currentIndex_] != nullptr) {
         //aout << "[turn] end turn → " << currentIndex_ << " / " << units_.size()
@@ -102,6 +113,31 @@ void Manager::endTurn() {
 
 void Manager::selfTest() {
     aout << "[turn] self-test starting" << std::endl;
+
+    {
+        game::Unit a(nullptr, unit::Faction::Player, unit::Stats{10, 5, 3, 4});
+        game::Unit b(nullptr, unit::Faction::Enemy, unit::Stats{10, 5, 3, 4});
+        game::Unit c(nullptr, unit::Faction::Enemy, unit::Stats{10, 5, 3, 4});
+        Manager m;
+        m.setUnits({&a, &b, &c});
+        b.applyStatus({unit::StatusType::Stunned, 1, 0});
+        m.endTurn();
+        assert(m.currentUnit() == &c && m.skippedTurns() == 1 && !b.isStunned());
+        m.endTurn();
+        m.endTurn();
+        assert(m.currentUnit() == &b && m.skippedTurns() == 1);
+        c.applyStatus({unit::StatusType::Stunned, 2, 0});
+        m.endTurn();
+        assert(m.currentUnit() == &a && m.skippedTurns() == 2);
+        m.endTurn();
+        m.endTurn();
+        assert(m.currentUnit() == &a && m.skippedTurns() == 3 && !c.isStunned());
+        a.applyStatus({unit::StatusType::Stunned, 5, 0});
+        b.applyStatus({unit::StatusType::Stunned, 5, 0});
+        c.applyStatus({unit::StatusType::Stunned, 5, 0});
+        m.endTurn();
+        assert(m.skippedTurns() == 6);
+    }
 
     {
         Manager m;

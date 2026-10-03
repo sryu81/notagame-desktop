@@ -83,30 +83,6 @@ SceneNode* BattleGrid::attachTerrainMesh(SceneNode* parent, const Mesh* terrainM
     return node;
 }
 
-bool BattleGrid::hasLineOfSight(const math::Vec2& a, const math::Vec2& b) const {
-    const int ax = static_cast<int>(a.x);
-    const int ay = static_cast<int>(a.y);
-    const int bx = static_cast<int>(b.x);
-    const int by = static_cast<int>(b.y);
-    if (!tiles_.inBounds(ax, ay) || !tiles_.inBounds(bx, by)) return false;
-    if (ax == bx && ay == by) return true;
-
-    int x = ax, y = ay;
-    const int dx = std::abs(bx - ax);
-    const int dy = -std::abs(by - ay);
-    const int sx = (ax < bx) ? 1 : -1;
-    const int sy = (ay < by) ? 1 : -1;
-    int err = dx + dy;
-
-    while (true) {
-        if (!(x == ax && y == ay) && !at(x, y).passable) return false;
-        if (x == bx && y == by) return true;
-        const int e2 = 2 * err;
-        if (e2 >= dy) { err += dy; x += sx; }
-        if (e2 <= dx) { err += dx; y += sy; }
-    }
-}
-
 void BattleGrid::selfTest() {
     aout << "[battle-grid] self-test starting" << std::endl;
 
@@ -168,19 +144,6 @@ void BattleGrid::selfTest() {
         assert(math::approxEqual(g.cellY(2, 1), -0.25f));
         assert(math::approxEqual(g.cellToWorld(0, 0).y, 0.5f));
         assert(math::approxEqual(g.cellToWorld(2, 1).y, -0.25f));
-    }
-
-    {
-        BattleGrid g(6, 6, 1.0f);
-        assert(g.hasLineOfSight(math::Vec2(0, 0), math::Vec2(0, 0)));
-        assert(g.hasLineOfSight(math::Vec2(0, 0), math::Vec2(5, 5)));
-        assert(g.hasLineOfSight(math::Vec2(2, 2), math::Vec2(4, 2)));
-        assert(!g.hasLineOfSight(math::Vec2(-1, 0), math::Vec2(0, 0)));
-        assert(!g.hasLineOfSight(math::Vec2(0, 0), math::Vec2(6, 0)));
-
-        g.setPassable(2, 0, false);
-        assert(!g.hasLineOfSight(math::Vec2(0, 0), math::Vec2(4, 0)));
-        assert(g.hasLineOfSight(math::Vec2(0, 0), math::Vec2(0, 4)));
     }
 
     aout << "[battle-grid] self-test PASS" << std::endl;

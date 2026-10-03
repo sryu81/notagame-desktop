@@ -1,8 +1,11 @@
 #include "HubScene.h"
 
+#include <algorithm>
+
 #include "AnimLab.h"
 #include "RenderLab.h"
 #include "SystemsLab.h"
+#include "TacticsLab.h"
 #include "UnitLab.h"
 #include <GLES3/gl3.h>
 
@@ -28,6 +31,7 @@ std::vector<HubScene::Entry> HubScene::entries(game::GameState& gs) {
         {"CAMERA LAB", [g]() { return std::unique_ptr<Scene>(new CameraLab(*g)); }},
         {"SYSTEMS LAB", [g]() { return std::unique_ptr<Scene>(new SystemsLab(*g)); }},
         {"UNIT LAB", [g]() { return std::unique_ptr<Scene>(new UnitLab(*g)); }},
+        {"TACTICS LAB", [g]() { return std::unique_ptr<Scene>(new TacticsLab(*g)); }},
         {"BATTLE", [g]() { return std::unique_ptr<Scene>(new BattleScene(*g)); }},
     };
 }
@@ -94,9 +98,12 @@ void HubScene::buildUI(int w, int h, Renderer& r) {
 
     Renderer* rptr = &r;
     game::GameState* gs = &gs_;
+    const auto list = entries(gs_);
+    const float rows = static_cast<float>(list.size() + 1);
+    const float rowH = std::min(kRowH, (fh - menuTop - 16.0f) / rows - kRowGap);
     menu_ = std::make_unique<game::DebugPanel>(
-        math::Vec2((fw - kRowW) * 0.5f, menuTop), math::Vec2(kRowW, kRowH), kRowGap, 3);
-    for (auto& e : entries(gs_)) {
+        math::Vec2((fw - kRowW) * 0.5f, menuTop), math::Vec2(kRowW, rowH), kRowGap, 3);
+    for (auto& e : list) {
         SceneFactory f = e.factory;
         const int row = menu_->addAction(e.label, [rptr, f]() {
             if (f) rptr->sceneManager().replace(f);

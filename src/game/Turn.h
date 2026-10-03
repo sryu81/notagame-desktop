@@ -32,16 +32,21 @@ public:
     float elapsed() const { return elapsed_; }
     float currentDuration() const;
 
+    size_t skippedTurns() const { return skipped_; }
+
     void reset();
     void restore(int index, float elapsed);
 
     static void selfTest();
 
 private:
+    void advance();
+
     std::vector<game::Unit *> units_;
     std::map<unit::Faction, float> durations_;
     size_t currentIndex_ = 0;
     float elapsed_ = 0.0f;
+    size_t skipped_ = 0;
 };
 
 } // namespace turn

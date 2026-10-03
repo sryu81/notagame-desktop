@@ -4,6 +4,7 @@
 #include <cmath>
 
 #include "Path.h"
+#include "Rules.h"
 #include "Unit.h"
 
 namespace battle {
@@ -39,22 +40,11 @@ void handlePointerDown(float x, float y, Renderer& r) {
         sel->faction() == unit::Faction::Player &&
         picked->faction() == unit::Faction::Enemy &&
         isPlayerTurn()) {
-        if (sel->isStunned()) {
-            aout << "[action] stunned, cannot attack" << std::endl;
-            return;
-        }
         const math::Vec2 a = sel->cell();
         const math::Vec2 b = picked->cell();
-        const int cheb = std::max(static_cast<int>(std::abs(a.x - b.x)),
-                                  static_cast<int>(std::abs(a.y - b.y)));
-        if (cheb > sel->stats().range) {
-            aout << "[action] out of range (cheb=" << cheb
-                 << " > range=" << sel->stats().range << ")" << std::endl;
-            return;
-        }
-        if (!d().grid->hasLineOfSight(a, b)) {
-            aout << "[action] LoS blocked from (" << a.x << "," << a.y
-                 << ") to (" << b.x << "," << b.y << ")" << std::endl;
+        const rules::AttackCheck check = rules::canAttack(*d().grid, *sel, *picked);
+        if (check != rules::AttackCheck::Ok) {
+            aout << "[action] attack refused: " << rules::toString(check) << std::endl;
             return;
         }
         enqueueAttack(sel, picked);

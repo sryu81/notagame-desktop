@@ -7,6 +7,7 @@
 #include "Engine.h"
 #include "GameState.h"
 #include "HubScene.h"
+#include "Rules.h"
 #include "Unit.h"
 #include "UnitDef.h"
 
@@ -338,13 +339,13 @@ void UnitLab::autoDrive(float dt) {
                                         knight_->cell().y == kKnightEnd.y);
             lastHp_ = goblin_->hp();
             actions_->enqueue(std::make_unique<action::AttackAction>(
-                knight_, goblin_, unit::damage(knight_->stats(), goblin_->stats())));
+                knight_, goblin_, rules::damage(knight_->stats(), goblin_->stats())));
             next();
             break;
         }
         case 2: {
             if (stepT_ < 0.2f || !actions_->isIdle()) break;
-            const int dmg = unit::damage(knight_->stats(), goblin_->stats());
+            const int dmg = rules::damage(knight_->stats(), goblin_->stats());
             checks_->check(kNoStrayScale, scaleOk_ && unitScale(knight_->visualNode()->world()));
             checks_->check(kAttackChain, sawAttack_ && hpChanges_ == 1 &&
                                          goblin_->hp() == goblin_->maxHp() - dmg &&

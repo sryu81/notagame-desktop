@@ -2,6 +2,7 @@
 
 #include "BattleGrid.h"
 #include "Engine.h"
+#include "Rules.h"
 #include "Unit.h"
 
 #include <cassert>
@@ -206,9 +207,10 @@ void MoveAction::onComplete() {
 namespace {
 
 void deliverHit(game::Unit* target, int damage, const anim::Clip* reaction,
-                const anim::SkeletalClip* skelReaction, const AttackAction::HitCallback& cb) {
+                const anim::SkeletalClip* skelReaction, const AttackAction::HitCallback& cb,
+                const std::optional<unit::StatusEffect>& status) {
     target->takeDamage(damage);
-    target->applyStatus({unit::StatusType::Poisoned, 3, 1});
+    if (status && !target->isDead()) target->applyStatus(*status);
     if (cb) cb();
     if (target->isDead()) return;
     const anim::SkeletalClip* skel = skelReaction ? skelReaction : target->clips().hurt;
@@ -282,11 +284,12 @@ void AttackAction::start() {
     SceneNode* rawAttacker = node;
     std::shared_ptr<bool> delivered = hitDelivered_;
     HitCallback hitCb = hitCb_;
+    std::optional<unit::StatusEffect> status = status_;
     node->setAnimEventCallback([rawTarget, rawDamage, reactionClip, skelReaction, rawAttacker,
-                                delivered, hitCb](int id) {
+                                delivered, hitCb, status](int id) {
         if (id != 1 || *delivered || rawTarget == nullptr || rawTarget->isDead()) return;
         *delivered = true;
-        deliverHit(rawTarget, rawDamage, reactionClip, skelReaction, hitCb);
+        deliverHit(rawTarget, rawDamage, reactionClip, skelReaction, hitCb, status);
         aout << "[action] HIT via event  atk_time=" << rawAttacker->time() << std::endl;
         s_lastEventAtkTime = rawAttacker->time();
     });
@@ -317,7 +320,7 @@ bool AttackAction::isDone() const {
 void AttackAction::applyDamage() {
     if (*hitDelivered_ || target_ == nullptr) return;
     *hitDelivered_ = true;
-    deliverHit(target_, damage_, hitReactionClip_, skeletalHitReaction_, hitCb_);
+    deliverHit(target_, damage_, hitReactionClip_, skeletalHitReaction_, hitCb_, status_);
 }
 
 void AttackAction::onComplete() {
@@ -340,6 +343,76 @@ void AttackAction::onComplete() {
              << " for " << damage_ << " damage (HP="
              << target_->hp() << "/" << target_->maxHp() << ") +Poisoned(3)" << std::endl;
     }
+}
+
+RangedAttackAction::RangedAttackAction(game::Unit *attacker, game::Unit *target, int damage,
+                                       const grid::BattleGrid *g, SceneNode *fxParent,
+                                       SceneNode::Drawable projectile, bool arc, float speed)
+        : attacker_(attacker), target_(target), damage_(damage), grid_(g),
+          fxParent_(fxParent), drawable_(projectile), arc_(arc), speed_(speed) {
+    assert(attacker_ != nullptr);
+    assert(target_ != nullptr);
+    assert(grid_ != nullptr);
+    assert(damage_ > 0);
+    assert(speed_ > 0.0f);
+}
+
+RangedAttackAction::~RangedAttackAction() { removeProjectile(); }
+
+math::Vec3 RangedAttackAction::positionAt(float s) const {
+    math::Vec3 p = from_ + (to_ - from_) * s;
+    if (arc_) p.y += 4.0f * 0.25f * (to_ - from_).length() * s * (1.0f - s);
+    return p;
+}
+
+void RangedAttackAction::removeProjectile() {
+    if (projectile_ && fxParent_) fxParent_->removeChild(projectile_);
+    projectile_ = nullptr;
+}
+
+void RangedAttackAction::start() {
+    elapsed_ = 0.0f;
+    hit_ = false;
+    constexpr float kLaunchY = 0.9f;
+    const math::Vec2 a = attacker_->cell(), b = target_->cell();
+    from_ = grid_->cellToWorld(static_cast<int>(a.x), static_cast<int>(a.y)) + math::Vec3(0, kLaunchY, 0);
+    to_ = grid_->cellToWorld(static_cast<int>(b.x), static_cast<int>(b.y)) + math::Vec3(0, kLaunchY, 0);
+    flight_ = std::max((to_ - from_).length() / speed_, 1e-3f);
+    clipDuration_ = 0.0f;
+    if (attacker_->isSkinned() && attacker_->clips().attack) {
+        savedClip_ = attacker_->visualNode()->skeletalClip();
+        attacker_->playClip(attacker_->clips().attack);
+        clipDuration_ = anim::duration(*attacker_->clips().attack);
+    }
+    if (fxParent_) {
+        projectile_ = fxParent_->addChild();
+        projectile_->addDrawable(drawable_);
+        projectile_->setLocal(math::Mat4::translation(from_) * math::Mat4::scale(math::Vec3(0.15f)));
+    }
+}
+
+void RangedAttackAction::update(float dt) {
+    elapsed_ += dt;
+    const float s = std::min(elapsed_ / flight_, 1.0f);
+    if (projectile_)
+        projectile_->setLocal(math::Mat4::translation(positionAt(s)) * math::Mat4::scale(math::Vec3(0.15f)));
+    if (!hit_ && s >= 1.0f) {
+        hit_ = true;
+        removeProjectile();
+        if (!target_->isDead()) deliverHit(target_, damage_, nullptr, nullptr, hitCb_, status_);
+    }
+}
+
+bool RangedAttackAction::isDone() const {
+    return hit_ && elapsed_ >= clipDuration_;
+}
+
+void RangedAttackAction::onComplete() {
+    removeProjectile();
+    if (savedClip_ && attacker_->isSkinned()) attacker_->playClip(savedClip_);
+    aout << "[action] ranged " << attacker_->cell().x << "," << attacker_->cell().y << " -> "
+         << target_->cell().x << "," << target_->cell().y << " for " << damage_
+         << " (HP=" << target_->hp() << "/" << target_->maxHp() << ")" << std::endl;
 }
 
 void Manager::enqueue(ActionPtr a) {
@@ -618,7 +691,7 @@ void Manager::selfTest() {
         const math::Vec3 fwd = a->visualNode()->world().transformDirection(math::Vec3(0, 0, -1));
         assert(fwd.x > 0.999f);
 
-        const int dmg = unit::damage(a->stats(), b->stats());
+        const int dmg = rules::damage(a->stats(), b->stats());
         mgr.enqueue(std::make_unique<AttackAction>(a.get(), b.get(), dmg));
         bool sawAttack = false;
         for (int i = 0; i < 12; ++i) {
@@ -640,6 +713,27 @@ void Manager::selfTest() {
         mgr.enqueue(std::make_unique<AttackAction>(a.get(), b.get(), b->hp()));
         while (!mgr.isIdle()) { root.update(0.05f); mgr.update(0.05f); }
         assert(b->isDead() && b->visualNode()->skeletalClip() == &death);
+    }
+
+    {
+        grid::BattleGrid g(6, 1, 1.0f);
+        SceneNode root, fx;
+        game::Unit a(&root, unit::Faction::Player, unit::Stats{10, 6, 0, 4, 4});
+        game::Unit b(&root, unit::Faction::Enemy, unit::Stats{10, 5, 2, 3, 1});
+        a.setCell(math::Vec2(0, 0));
+        b.setCell(math::Vec2(4, 0));
+        Manager mgr;
+        auto r = std::make_unique<RangedAttackAction>(&a, &b, 4, &g, &fx, SceneNode::Drawable{}, true, 8.0f);
+        r->setStatus(unit::StatusEffect{unit::StatusType::Stunned, 1, 0});
+        auto* raw = r.get();
+        mgr.enqueue(std::move(r));
+        mgr.update(0.1f);
+        assert(fx.children().size() == 1 && b.hp() == 10);
+        assert(raw->projectile()->local().m[13] > 0.9f);
+        for (int i = 0; i < 3; ++i) mgr.update(0.1f);
+        assert(b.hp() == 10);
+        mgr.update(0.1f);
+        assert(mgr.isIdle() && b.hp() == 6 && b.isStunned() && fx.children().empty());
     }
 
     aout << "[action] self-test PASS" << std::endl;

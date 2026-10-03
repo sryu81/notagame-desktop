@@ -396,7 +396,8 @@ Status: planned 2026-09-26. Every row below is a checklist row in the
 named lab; a feature is **done** when its rows are green in an ASan
 auto-drive and its code lives in the promoted module, not in the lab.
 
-**Prerequisite H1 — scripted input harness.** Promote the throwaway
+**Prerequisite H1 — scripted input harness.** Status: done 2026-09-27
+(`src/desktop/ScriptRunner`, `PngWriter`, `scripts/verify/`). Promote the throwaway
 `NAG_SCRIPT` patch used to verify every P2 lab into
 `src/desktop/main.cpp`: `--script <file>` with lines
 `<frame> <tap|down|move|up|shot|quit> [x y]` in framebuffer coordinates,

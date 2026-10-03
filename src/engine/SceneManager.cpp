@@ -3,6 +3,7 @@
 #include <cassert>
 
 #include "AndroidOut.h"
+#include "Renderer.h"
 
 void SceneManager::start(std::unique_ptr<Scene> initial, Renderer& r) {
     assert(initial != nullptr);
@@ -55,6 +56,9 @@ void SceneManager::selfTest() {
         void render(Renderer&) override { ++c.renders; }
     };
 
+    alignas(Renderer) unsigned char rendererStorage[sizeof(Renderer)] = {};
+    Renderer& fakeRenderer = *reinterpret_cast<Renderer*>(rendererStorage);
+
     SceneManager mgr;
     assert(mgr.current() == nullptr);
 
@@ -62,18 +66,18 @@ void SceneManager::selfTest() {
     auto* a = new CountScene(ca);
     auto* b = new CountScene(cb);
 
-    mgr.start(std::unique_ptr<Scene>(a), *static_cast<Renderer*>(nullptr));
+    mgr.start(std::unique_ptr<Scene>(a), fakeRenderer);
     assert(mgr.current() == a);
     assert(ca.enters == 1 && ca.exits == 0);
 
-    mgr.update(0.1f, *static_cast<Renderer*>(nullptr));
-    mgr.render(*static_cast<Renderer*>(nullptr));
+    mgr.update(0.1f, fakeRenderer);
+    mgr.render(fakeRenderer);
     assert(ca.updates == 1 && ca.renders == 1);
 
     mgr.replace(std::unique_ptr<Scene>(b));
     assert(mgr.current() == a);
 
-    mgr.flush(*static_cast<Renderer*>(nullptr));
+    mgr.flush(fakeRenderer);
     assert(mgr.current() == b);
     assert(ca.exits == 1 && cb.enters == 1);
 

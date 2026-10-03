@@ -3,6 +3,7 @@
 #include "AndroidOut.h"
 
 #include <cassert>
+#include <cstdint>
 #include <cmath>
 #include <cstdlib>
 
@@ -26,9 +27,11 @@ bool updateLightning(LightningState& s, float dt, float& outFlash) {
     }
     s.timer += dt;
     if (s.nextDelay <= 0.0f) {
-        const int r = (s.seed * 1103515245 + (int)(s.timer * 1000.0f) + 12345) & 0x7fffffff;
+        const uint32_t r = (static_cast<uint32_t>(s.seed) * 1103515245u +
+                            static_cast<uint32_t>(s.timer * 1000.0f) + 12345u) & 0x7fffffffu;
         const int jitterMs = (int)(s.jitterRange * 1000.0f);
-        s.nextDelay = s.baseDelay + (jitterMs > 0 ? (r % jitterMs) / 1000.0f : 0.0f);
+        s.nextDelay = s.baseDelay +
+            (jitterMs > 0 ? static_cast<float>(r % static_cast<uint32_t>(jitterMs)) / 1000.0f : 0.0f);
     }
     if (s.timer >= s.nextDelay) {
         s.flashIntensity = s.peakIntensity;

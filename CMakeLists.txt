@@ -22,7 +22,8 @@ target_include_directories(not-a-game-engine SYSTEM PRIVATE ${CMAKE_SOURCE_DIR}/
 target_link_libraries(not-a-game-engine PUBLIC PkgConfig::GLESV2 Threads::Threads ${CMAKE_DL_LIBS} m)
 
 file(GLOB GAME_SOURCES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/src/game/*.cpp)
-add_executable(not_a_game src/desktop/main.cpp ${GAME_SOURCES})
+file(GLOB DESKTOP_SOURCES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/src/desktop/*.cpp)
+add_executable(not_a_game ${DESKTOP_SOURCES} ${GAME_SOURCES})
 target_include_directories(not_a_game PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/game)
 target_link_libraries(not_a_game PRIVATE not-a-game-engine PkgConfig::GLFW3)
 

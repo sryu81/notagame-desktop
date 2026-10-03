@@ -12,7 +12,16 @@
 #include "Engine.h"
 #include "Path.h"
 #include "Prop.h"
+#include "AnimLab.h"
+#include "BattleScene.h"
+#include "CameraLab.h"
+#include "FxLab.h"
+#include "HubScene.h"
+#include "RenderLab.h"
+#include "SystemsLab.h"
 #include "TitleScene.h"
+#include "desktop/PngWriter.h"
+#include "desktop/ScriptRunner.h"
 #include "Turn.h"
 #include "Unit.h"
 #include "UnitCatalog.h"
@@ -45,11 +54,36 @@ public:
         glfwGetFramebufferSize(window_, &width, &height);
     }
 
-    void swapBuffers() override { glfwSwapBuffers(window_); }
+    void swapBuffers() override {
+        if (!pendingShot_.empty()) {
+            capture(pendingShot_);
+            pendingShot_.clear();
+        }
+        glfwSwapBuffers(window_);
+    }
+
+    void requestScreenshot(const std::string& path) { pendingShot_ = path; }
 
     void requestQuit() override { glfwSetWindowShouldClose(window_, GLFW_TRUE); }
 
 private:
+    void capture(const std::string& path) const {
+        int w = 0, h = 0;
+        glfwGetFramebufferSize(window_, &w, &h);
+        std::vector<uint8_t> px(static_cast<size_t>(w) * h * 4);
+        glPixelStorei(GL_PACK_ALIGNMENT, 1);
+        glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, px.data());
+        std::vector<uint8_t> flipped(px.size());
+        const size_t row = static_cast<size_t>(w) * 4;
+        for (int y = 0; y < h; ++y)
+            std::copy(px.begin() + static_cast<long>(y * row), px.begin() + static_cast<long>((y + 1) * row),
+                      flipped.begin() + static_cast<long>((h - 1 - y) * row));
+        for (size_t i = 3; i < flipped.size(); i += 4) flipped[i] = 255;
+        const bool ok = desktop::writePngRgba(path, w, h, flipped);
+        aout << "[script] shot " << path << (ok ? "" : " FAILED") << std::endl;
+    }
+
+    std::string pendingShot_;
     GLFWwindow* window_;
     fs::path assetRoot_;
     fs::path dataRoot_;
@@ -118,6 +152,18 @@ fs::path defaultDataRoot() {
     return fs::current_path() / "save";
 }
 
+std::unique_ptr<Scene> makeStartScene(const std::string& name, game::GameState& gs) {
+    if (name == "hub")        return std::make_unique<HubScene>(gs);
+    if (name == "battle")     return std::make_unique<BattleScene>(gs);
+    if (name == "renderlab")  return std::make_unique<RenderLab>(gs);
+    if (name == "animlab")    return std::make_unique<AnimLab>(gs);
+    if (name == "fxlab")      return std::make_unique<FxLab>(gs);
+    if (name == "cameralab")  return std::make_unique<CameraLab>(gs);
+    if (name == "systemslab") return std::make_unique<SystemsLab>(gs);
+    if (name != "title") aout << "[desktop] unknown --start '" << name << "', using title" << std::endl;
+    return std::make_unique<TitleScene>(gs);
+}
+
 fs::path defaultAssetRoot(const char* argv0) {
     std::error_code ec;
     fs::path exe = fs::canonical("/proc/self/exe", ec);
@@ -130,10 +176,14 @@ fs::path defaultAssetRoot(const char* argv0) {
 int main(int argc, char** argv) {
     fs::path assetRoot = defaultAssetRoot(argv[0]);
     fs::path dataRoot  = defaultDataRoot();
+    std::string scriptPath;
+    std::string startScene = "title";
     for (int i = 1; i + 1 < argc; ++i) {
         const std::string arg = argv[i];
-        if (arg == "--assets")    assetRoot = argv[++i];
-        else if (arg == "--data") dataRoot  = argv[++i];
+        if (arg == "--assets")      assetRoot  = argv[++i];
+        else if (arg == "--data")   dataRoot   = argv[++i];
+        else if (arg == "--script") scriptPath = argv[++i];
+        else if (arg == "--start")  startScene = argv[++i];
     }
     fs::create_directories(dataRoot);
 
@@ -207,6 +257,15 @@ int main(int argc, char** argv) {
     game::LabChecklist::selfTest();
     game::clipEventsSelfTest();
     game::FootIKRig::selfTest();
+    desktop::ScriptRunner::selfTest();
+    desktop::pngSelfTest();
+
+    desktop::ScriptRunner script;
+    if (!scriptPath.empty() && !script.load(scriptPath)) {
+        glfwDestroyWindow(window);
+        glfwTerminate();
+        return EXIT_FAILURE;
+    }
 
     InputState inputState;
     glfwSetWindowUserPointer(window, &inputState);
@@ -218,14 +277,17 @@ int main(int argc, char** argv) {
     {
         auto gs = std::make_shared<game::GameState>();
         gs->initDefaultRoster(3);
-        Renderer renderer(platform, [gs]() {
-            return std::unique_ptr<Scene>(new TitleScene(*gs));
-        });
+        Renderer renderer(platform, [gs, startScene]() { return makeStartScene(startScene, *gs); });
         inputState.renderer = &renderer;
 
+        int frame = 0;
         while (!glfwWindowShouldClose(window)) {
             glfwPollEvents();
+            script.step(frame, renderer,
+                        [&platform](const std::string& path) { platform.requestScreenshot(path); },
+                        [window]() { glfwSetWindowShouldClose(window, GLFW_TRUE); });
             renderer.render();
+            ++frame;
         }
         inputState.renderer = nullptr;
     }

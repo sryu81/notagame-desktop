@@ -21,7 +21,16 @@ cmake --build build                   # incremental; new .cpp files picked up by
 ./build/not_a_game --assets ./assets  # asset dir (default <exe dir>/assets symlink)
 scripts/rebuild_run.sh                # rm -rf build, configure, build, launch
 scripts/rebuild_run.sh --asan -- --data ./save   # same in build-asan; args after -- go to game
+./build/not_a_game --start fxlab      # start scene: title hub battle renderlab animlab fxlab cameralab systemslab
+./build/not_a_game --script f.txt     # scripted input: "<frame> tap|down|move|up x y", "key code", "shot f.png", "quit"
+scripts/verify/run_labs.sh [out]      # ASan build, every lab auto-drive, fails on red check or sanitizer report
 ```
+
+Verification: run `scripts/verify/run_labs.sh` after engine/game changes. It
+drives `scripts/verify/labs.txt` from the hub (framebuffer coordinates at
+1280×720), checks each lab logs `auto-drive done: N/N`, battle loads, and no
+ASan/UBSan report; screenshots and the log land in `build-asan/verify/`.
+Screenshots are read from the back buffer in `DesktopPlatform::swapBuffers`.
 
 Sanitizers: `cmake -S . -B build-asan -G Ninja -DNAG_SANITIZE=ON && cmake --build build-asan`
 
@@ -90,7 +99,7 @@ Platform-specific (do NOT copy verbatim; Android needs its own impl):
 | `TextureAsset` (stb_image) | either vendor stb_image on Android too, or keep AImageDecoder behind `Platform` bytes |
 | `Audio_miniaudio.cpp` | keep `Audio_oboe.cpp`, port to `Audio::init(const Platform*)`; also implement `isOpen`, `activeVoiceCount`, `currentMusic`, `outputPeak` (store `audio::peakAbs` of each mixed buffer) |
 | `AndroidOut.cpp` (stderr) | restore `__android_log_print` under `#ifdef __ANDROID__` |
-| `src/desktop/main.cpp` | stays desktop-only; sync selfTest list with Android `main.cpp` |
+| `src/desktop/main.cpp`, `ScriptRunner`, `PngWriter` | stay desktop-only; sync selfTest list with Android `main.cpp` |
 
 Everything else in `src/engine` and `src/game` is portable — diff and copy.
 
@@ -115,6 +124,8 @@ Fixes made here that upstream lacks (keep this list current):
 - Renderer clears the shadow map once when a scene has no shadow root
   (lit surfaces sampled an unwritten or previous scene's map).
 - `GameState` and `EntityRegistry` derive from `engine::Saveable`.
+- UBSan clean: lightning RNG uses `uint32_t` (was signed overflow);
+  `SceneManager::selfTest` no longer binds a reference to a null `Renderer`.
 - `engine::foot_ik::solveTwoBone` rewritten: it bent around the wrong axis
   (a no-op for a straight leg) and echoed the target as `solvedFootPos`;
   selfTests now check forward kinematics.

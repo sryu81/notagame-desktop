@@ -196,6 +196,9 @@ Fixes made here that upstream lacks (keep this list current):
   `Saveable` save. Upstream's `BattleRules.cpp`, fixed-struct save, LAND
   presets and tuning panels are removed. `GameState::restoreTo` brings
   fallen units back at 1 HP.
+- `game/UnitTypes`: single unit stat table (battle, LevelLab, AI roster).
+  `ai::planTurn` optional goal cell (reach-cell levels); battles cap at 30
+  rounds.
 - Font: punctuation glyphs (`. : % = < > / ( ) , ? * ' _`) and lowercase →
   uppercase shapes. Regenerate with `python3 tools/gen_font.py > src/engine/FontData.h`
   (`tools/gen_font.py` is copied from upstream and extended).

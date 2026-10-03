@@ -83,6 +83,7 @@ struct Data {
     const game::Unit* selected = nullptr;
     flow::Outcome outcome = flow::Outcome::Ongoing;
     float resultTimer = 0.0f;
+    bool framing = false;
     bool resultChecked = false;
     bool spawnedOk = false;
     Tally tally;
@@ -131,7 +132,7 @@ void addChecklistRows(game::LabChecklist& c);
 void onMenuAction(gui::Action a);
 bool playerControls(const game::Unit* u);
 void playerMove(const math::Vec2& cell);
-void playerAttack(game::Unit* target);
+void playerAttack(game::Unit* target, Renderer& r);
 void showHighlight(const std::vector<math::Vec2>& cells, const math::Vec3& color);
 game::Unit* pickUnit(float x, float y, Renderer& r);
 bool cellAtScreen(float x, float y, Renderer& r, math::Vec2& out);

@@ -32,7 +32,7 @@ void handlePointerDown(float x, float y, Renderer& r) {
         }
     } else if (myTurn && d().mode == Mode::ChooseTarget) {
         if (picked && highlighted(picked->cell())) {
-            playerAttack(picked);
+            playerAttack(picked, r);
             r.cancelPan();
             return;
         }

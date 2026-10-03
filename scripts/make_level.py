@@ -22,7 +22,8 @@ UNIT_TYPES = {
     "knight": (PLAYER, (0.95, 0.55, 0.25), (1.0, 0.95, 0.30), (12, 6, 4, 4, 1)),
     "mage":   (ALLY,   (0.30, 0.80, 0.30), (0.80, 1.00, 0.30), (8, 4, 3, 3, 2)),
     "archer": (PLAYER, (0.30, 0.75, 0.45), (0.60, 1.00, 0.60), (9, 5, 2, 3, 4)),
-    "goblin": (ENEMY,  (0.30, 0.70, 0.95), (1.0, 0.30, 0.30), (9, 5, 3, 3, 1)),
+    "goblin": (ENEMY,  (0.30, 0.70, 0.95), (1.0, 0.30, 0.30), (11, 7, 3, 4, 1)),
+    "slinger": (ENEMY, (0.70, 0.60, 0.25), (1.0, 0.30, 0.30), (9, 6, 1, 3, 3)),
 }
 
 PROP_COLORS = {CRATE: (0.55, 0.38, 0.20), ROCK: (0.50, 0.50, 0.52), TREE: (0.25, 0.55, 0.25)}
@@ -59,7 +60,8 @@ def level_flat():
     blocked = {(12, 12), (13, 12), (12, 13), (13, 13)}
     cells = [(0 if (x, y) in blocked else 1, 0.25 * math.sin((x + y) * 0.4))
              for y in range(h) for x in range(w)]
-    units = [("knight", 5, 12), ("mage", 12, 5), ("goblin", 18, 18)]
+    units = [("knight", 5, 12), ("goblin", 16, 15), ("archer", 4, 10), ("goblin", 15, 17),
+             ("mage", 6, 9), ("slinger", 18, 18)]
     props = [(CRATE, 7, 9, 0.8), (CRATE, 8, 9, 0.8, 0.3), (ROCK, 15, 4, 1.2),
              (TREE, 3, 3), (TREE, 16, 15), (TREE, 9, 17)]
     return w, h, cells, units, props, (DEFEAT_ALL, 0, 0)
@@ -74,8 +76,8 @@ def level_hill():
         return round(max(0.0, 1.0 - d2 / 36.0) * 1.5 / 0.25) * 0.25
 
     cells = [(1, y_at(x, z)) for z in range(h) for x in range(w)]
-    units = [("knight", 2, 2), ("archer", 3, 2), ("mage", 2, 3),
-             ("goblin", 10, 10), ("goblin", 11, 9), ("goblin", 9, 11)]
+    units = [("knight", 2, 2), ("goblin", 10, 10), ("archer", 3, 2), ("goblin", 11, 9),
+             ("mage", 2, 3), ("slinger", 9, 11)]
     props = [(TREE, 5, 7), (TREE, 7, 4), (TREE, 13, 5), (TREE, 4, 13), (ROCK, 12, 13, 0.9)]
     return w, h, cells, units, props, (SURVIVE, 8, 0)
 
@@ -96,8 +98,8 @@ def level_fort():
                 cells.append((1, 1.0))
             else:
                 cells.append((1, 0.0))
-    units = [("knight", 7, 1), ("archer", 8, 1), ("goblin", 7, 8), ("goblin", 8, 8),
-             ("goblin", 3, 12)]
+    units = [("knight", 7, 1), ("goblin", 7, 8), ("archer", 8, 1), ("slinger", 8, 9),
+             ("mage", 6, 1), ("goblin", 3, 12)]
     props = [(CRATE, 6, 9), (CRATE, 9, 6, 0.8), (ROCK, 2, 5, 1.1), (ROCK, 13, 3),
              (TREE, 13, 13), (TREE, 1, 14)]
     return w, h, cells, units, props, (REACH_CELL, 8, 8)

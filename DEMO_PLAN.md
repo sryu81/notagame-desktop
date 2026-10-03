@@ -615,6 +615,19 @@ move (it re-centres on the acting unit at turn start and frames attacks).
 First auto-battle on HILL: DEFEAT in round 5, 12 moves, 13 attacks,
 3 stun skips — the enemy side is strong on that map.
 
+Balance pass (2026-10-03): one stat table, `game/UnitTypes` (knight,
+mage, archer, goblin, slinger; `stuns` flag), feeds the battle catalog,
+LevelLab and `ai::defaultRoster`. Enemy stats swept against 40 seeded
+AILab battles (turn order interleaved): goblin 11/5/3/4/1 → 11/7/3/4/1,
+slinger 8/4/2/3/3 → 9/6/1/3/3 takes player wins from 40/40 to 24/40
+(before the archer's stun, which the headless sim does not model). Levels
+are now 3v3 with interleaved turn order. FORT never ended because AI
+units ignored the reach-cell goal: `ai::planTurn` takes an optional goal
+that player-side units walk toward when they cannot attack; battles also
+end as DEFEAT after 30 rounds. Auto-battles now: FLAT VICTORY r7, HILL
+VICTORY r7, FORT VICTORY r4, all 6/6 rows. The camera follows the acting
+unit while it moves and frames attacks (player attacks too).
+
 Status: reviewed 2026-09-26. P3 is **wiring only**: every rule, spawner,
 AI and UI piece comes from a P2b module. Findings from the review that
 P2b must cover (item → owner): battle spawns no units today (LevelLab,

@@ -15,7 +15,7 @@ constexpr float kNear = 0.1f;
 constexpr float kFar  = 100.0f;
 const math::Vec3 kEye(0.0f, 11.0f, 12.5f);
 const math::Vec3 kLook(0.0f, 0.0f, 0.8f);
-constexpr int kBattles = 20;
+constexpr int kBattles = 40;
 constexpr uint32_t kLiveSeed = 1;
 
 const char* kLegal     = "LEGAL MOVES";

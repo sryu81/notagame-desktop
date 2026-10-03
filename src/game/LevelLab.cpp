@@ -11,6 +11,7 @@
 #include "Prop.h"
 #include "Unit.h"
 #include "UnitDef.h"
+#include "UnitTypes.h"
 
 namespace {
 
@@ -64,10 +65,7 @@ void LevelLab::buildCatalog() {
         d.baseScale = kUnitScale;
         catalog_.registerDef(id, d);
     };
-    def("knight", unit::Faction::Player, {15, 6, 4, 4, 1}, math::Vec3(0.90f, 0.55f, 0.25f));
-    def("mage",   unit::Faction::Ally,   {12, 8, 2, 3, 2}, math::Vec3(0.30f, 0.50f, 0.90f));
-    def("archer", unit::Faction::Player, {10, 9, 2, 3, 4}, math::Vec3(0.30f, 0.80f, 0.40f));
-    def("goblin", unit::Faction::Enemy,  {10, 5, 3, 3, 1}, math::Vec3(0.25f, 0.65f, 0.25f));
+    for (const auto& t : game::unitTypes()) def(t.id, t.faction, t.stats, t.color);
 }
 
 void LevelLab::loadFiles(Renderer& r) {

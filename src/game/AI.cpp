@@ -8,6 +8,7 @@
 
 #include "BattleGrid.h"
 #include "Engine.h"
+#include "UnitTypes.h"
 
 namespace ai {
 
@@ -53,13 +54,14 @@ int nearestEnemyDistance(const game::Unit& u, const math::Vec2& cell,
 }
 
 Plan planTurn(const game::Unit& u, const grid::BattleGrid& g, const std::vector<game::Unit*>& units,
-              const rules::Tunables& t, Rng& rng) {
+              const rules::Tunables& t, Rng& rng, const math::Vec2* goal) {
     Plan plan;
     if (u.isDead() || u.isStunned()) return plan;
     std::vector<game::Unit*> enemies;
     for (game::Unit* e : units)
         if (e && hostile(u, *e)) enemies.push_back(e);
-    if (enemies.empty()) return plan;
+    const bool seeksGoal = goal && rules::allied(u.faction(), unit::Faction::Player);
+    if (enemies.empty() && !seeksGoal) return plan;
 
     for (game::Unit* e : enemies)
         if (attackableFrom(g, u, u.cell(), *e, t) && (!plan.target || e->hp() < plan.target->hp()))
@@ -86,11 +88,15 @@ Plan planTurn(const game::Unit& u, const grid::BattleGrid& g, const std::vector<
         return plan;
     }
 
-    const int d0 = nearestEnemyDistance(u, u.cell(), units);
+    auto metric = [&](const math::Vec2& c) {
+        if (seeksGoal) return static_cast<int>(std::abs(c.x - goal->x) + std::abs(c.y - goal->y));
+        return nearestEnemyDistance(u, c, units);
+    };
+    const int d0 = metric(u.cell());
     int bestD = d0, bestSteps = INT_MAX;
     std::vector<math::Vec2> ties;
     for (const auto& c : cells) {
-        const int d = nearestEnemyDistance(u, c, units);
+        const int d = metric(c);
         if (d > bestD || d >= d0) continue;
         const int s = steps(g, u, c, t);
         if (d < bestD || s < bestSteps) {
@@ -105,14 +111,13 @@ Plan planTurn(const game::Unit& u, const grid::BattleGrid& g, const std::vector<
 }
 
 std::vector<SimUnit> defaultRoster() {
-    return {
-        {"KNIGHT", unit::Faction::Player, {14, 6, 4, 4, 1}},
-        {"ARCHER", unit::Faction::Player, {9, 5, 2, 3, 3}},
-        {"MAGE",   unit::Faction::Player, {8, 7, 1, 3, 2}},
-        {"GOBLIN", unit::Faction::Enemy,  {11, 5, 3, 4, 1}},
-        {"GOBLIN", unit::Faction::Enemy,  {11, 5, 3, 4, 1}},
-        {"SLINGER", unit::Faction::Enemy, {8, 4, 2, 3, 3}},
-    };
+    std::vector<SimUnit> out;
+    for (const char* id : {"knight", "goblin", "archer", "goblin", "mage", "slinger"}) {
+        const game::UnitType* t = game::findUnitType(id);
+        out.push_back({t->name, rules::allied(t->faction, unit::Faction::Player) ? unit::Faction::Player
+                                                                                 : unit::Faction::Enemy, t->stats});
+    }
+    return out;
 }
 
 Battle setupBattle(const SimConfig& cfg, const std::vector<SimUnit>& roster) {
@@ -265,6 +270,12 @@ void selfTest() {
         a.applyStatus({unit::StatusType::Stunned, 1, 0});
         p = planTurn(a, g, all, {}, rng);
         assert(!p.target && p.path.empty());
+        a.clearStatuses();
+        e.takeDamage(99);
+        a.setCell(math::Vec2(0, 0));
+        const math::Vec2 goal(6, 0);
+        p = planTurn(a, g, all, {}, rng, &goal);
+        assert(!p.target && p.path.back().x == 3.0f);
     }
 
     {

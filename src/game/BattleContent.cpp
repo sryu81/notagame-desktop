@@ -11,6 +11,7 @@
 #include "LevelSpawner.h"
 #include "Unit.h"
 #include "UnitDef.h"
+#include "UnitTypes.h"
 
 namespace battle {
 
@@ -62,10 +63,7 @@ void buildCatalog(bool rig) {
         }
         d().catalog.registerDef(id, u);
     };
-    def("knight", "KNIGHT", unit::Faction::Player, {15, 6, 4, 4, 1}, math::Vec3(0.90f, 0.55f, 0.25f));
-    def("mage",   "MAGE",   unit::Faction::Ally,   {10, 7, 2, 3, 2}, math::Vec3(0.35f, 0.45f, 0.95f));
-    def("archer", "ARCHER", unit::Faction::Player, {10, 5, 2, 3, 3}, math::Vec3(0.30f, 0.80f, 0.40f));
-    def("goblin", "GOBLIN", unit::Faction::Enemy,  {11, 5, 3, 4, 1}, math::Vec3(0.55f, 0.75f, 0.20f));
+    for (const auto& t : game::unitTypes()) def(t.id, t.name, t.faction, t.stats, t.color);
 }
 
 bool checkSpawn() {

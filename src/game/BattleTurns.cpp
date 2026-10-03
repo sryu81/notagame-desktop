@@ -10,6 +10,7 @@
 #include "ResultScene.h"
 #include "Rules.h"
 #include "Unit.h"
+#include "UnitTypes.h"
 
 namespace battle {
 
@@ -17,6 +18,7 @@ namespace {
 
 constexpr float kPerCell = 0.3f;
 constexpr float kResultDelay = 1.5f;
+constexpr int   kMaxRounds = 30;
 
 const char* kSpawned   = "SPAWNED FROM LEVEL";
 const char* kReach     = "MOVES WITHIN REACH";
@@ -37,7 +39,9 @@ math::Vec3 unitPos(const game::Unit* u) {
 
 bool stuns(const game::Unit* u) {
     const int i = indexOf(u);
-    return i >= 0 && d().names[static_cast<size_t>(i)] == "ARCHER";
+    if (i < 0) return false;
+    const game::UnitType* t = game::findUnitType(d().level.units[static_cast<size_t>(i)].catalogId);
+    return t && t->stuns;
 }
 
 void enqueueMove(game::Unit* u, std::vector<math::Vec2> path) {
@@ -77,12 +81,16 @@ void enqueueAttack(game::Unit* a, game::Unit* t, Renderer* r) {
         hit->setHitCallback(onHit);
         d().actions->enqueue(std::move(hit));
     }
-    if (r) r->camera().frame({unitPos(a), unitPos(t)}, 0.25f);
+    if (r) {
+        r->camera().frame({unitPos(a), unitPos(t)}, 0.25f);
+        d().framing = true;
+    }
 }
 
 void beginTurn(Renderer& r) {
     d().turnUnit = d().turns->currentUnit();
     d().turnState = {};
+    d().framing = false;
     d().mode = Mode::Menu;
     d().aiPhase = 0;
     d().highlight.clear();
@@ -100,7 +108,9 @@ void beginTurn(Renderer& r) {
 void stepAI(Renderer& r) {
     game::Unit* u = d().turnUnit;
     if (d().aiPhase == 0) {
-        d().aiPlan = ai::planTurn(*u, *d().grid, d().units, d().tun, *d().rng);
+        const math::Vec2 goal(d().level.win.a, d().level.win.b);
+        const bool reach = d().level.win.type == level::WinType::ReachCell;
+        d().aiPlan = ai::planTurn(*u, *d().grid, d().units, d().tun, *d().rng, reach ? &goal : nullptr);
         if (!d().aiPlan.path.empty()) enqueueMove(u, d().aiPlan.path);
         d().aiPhase = 1;
         return;
@@ -189,8 +199,8 @@ void playerMove(const math::Vec2& cell) {
     d().mode = Mode::Menu;
 }
 
-void playerAttack(game::Unit* target) {
-    enqueueAttack(d().turnUnit, target, nullptr);
+void playerAttack(game::Unit* target, Renderer& r) {
+    enqueueAttack(d().turnUnit, target, &r);
     d().turnState.acted = true;
     showHighlight({}, math::Vec3(0));
     d().mode = Mode::Busy;
@@ -217,6 +227,7 @@ void updateTurns(float dt, Renderer& r, game::GameState& gs) {
     if (d().flow->update()) d().turnUnit = nullptr;
     if (!d().actions->isIdle()) return;
     d().outcome = flow::evaluate(d().level.win, d().units, d().turns->round());
+    if (d().outcome == flow::Outcome::Ongoing && d().turns->round() > kMaxRounds) d().outcome = flow::Outcome::Defeat;
     if (d().outcome != flow::Outcome::Ongoing) return;
     if (d().turnUnit != d().turns->currentUnit()) beginTurn(r);
     if (!d().turnUnit || d().flow->waiting()) return;

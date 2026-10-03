@@ -105,6 +105,13 @@ void BattleScene::update(float dt, Renderer& r) {
 
     battle::updateTurns(dt, r, gs_);
 
+    if (d().turnUnit && d().actions && !d().actions->isIdle() && !d().framing) {
+        const math::Mat4 m = d().turnUnit->node()->world();
+        const math::Vec3 cur = r.camera().target();
+        const math::Vec3 to(m.m[12], m.m[13], m.m[14]);
+        r.camera().setTarget(cur + (to - cur) * std::min(1.0f, gameDt * 6.0f));
+    }
+
     if (d().turnUnit && !d().turnUnit->isDead()) {
         const math::Vec3 p = d().grid->cellToWorld(static_cast<int>(d().turnUnit->cell().x),
                                                    static_cast<int>(d().turnUnit->cell().y));

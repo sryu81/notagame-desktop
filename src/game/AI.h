@@ -33,7 +33,7 @@ struct Plan {
 };
 
 Plan planTurn(const game::Unit& u, const grid::BattleGrid& g, const std::vector<game::Unit*>& units,
-              const rules::Tunables& t, Rng& rng);
+              const rules::Tunables& t, Rng& rng, const math::Vec2* goal = nullptr);
 
 bool attackableFrom(const grid::BattleGrid& g, const game::Unit& u, const math::Vec2& cell,
                     const game::Unit& enemy, const rules::Tunables& t);

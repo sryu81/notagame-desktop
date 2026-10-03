@@ -32,6 +32,9 @@ const char* kPickMiss    = "PICK MISS";
 const char* kPointerMove = "POINTER MOVE";
 const char* kPointerUp   = "POINTER UP";
 const char* kKeyDown     = "KEY DOWN";
+const char* kFramesAtk   = "FRAMES ATTACK";
+const char* kPanClamp    = "PAN CLAMP";
+const char* kPortraitFit = "PORTRAIT FIT";
 
 struct Preset { const char* name; float pitch; float yaw; };
 const Preset kPresets[] = {
@@ -98,7 +101,8 @@ void CameraLab::enter(Renderer& r) {
     ui_->init();
     checks_ = std::make_unique<game::LabChecklist>(math::Vec2(16, 16));
     for (const char* row : {kOrbitYaw, kPitchLimits, kYawLimits, kOrthoToggle, kSetForward,
-                            kFollow, kPickHit, kPickMiss, kPointerMove, kPointerUp, kKeyDown})
+                            kFollow, kPickHit, kPickMiss, kPointerMove, kPointerUp, kKeyDown,
+                            kFramesAtk, kPanClamp, kPortraitFit})
         checks_->add(row);
     resetCamera(r);
     buildUI(r);
@@ -397,10 +401,53 @@ void CameraLab::autoDrive(float dt, Renderer& r) {
             checks_->check(kKeyDown, keyEvents_ > 0 && preset_ == 2 &&
                                      std::abs(eyePitchDeg(cam) - kPresets[2].pitch) < 0.5f);
             resetCamera(r);
-            aout << "[cameralab] auto-drive done: " << checks_->passedCount() << "/"
-                 << checks_->size() << " checks green" << std::endl;
+            {
+                const math::Vec3 a = kTargetPos[0], b = kTargetPos[4];
+                cam.frame({a, b}, 0.15f);
+                const math::Vec3 mid = (a + b) * 0.5f;
+                const bool inside = cam.inView(a, 0.15f) && cam.inView(b, 0.15f);
+                const float d = cam.distance();
+                cam.setDistance(d * 0.85f);
+                const bool tight = !(cam.inView(a, 0.15f) && cam.inView(b, 0.15f));
+                cam.setDistance(d);
+                checks_->check(kFramesAtk, inside && tight && (cam.target() - mid).length() < 1e-3f);
+            }
             step_ = 11;
             break;
+        case 11: {
+            if (autoT_ < 8.4f) break;
+            resetCamera(r);
+            cam.setTargetBounds(math::Vec2(-8.0f, -8.0f), math::Vec2(8.0f, 8.0f));
+            bool clamped = true;
+            const float pushes[4][2] = {{-1e5f, 0.0f}, {1e5f, 0.0f}, {0.0f, 1e5f}, {0.0f, -1e5f}};
+            for (const auto& p : pushes) {
+                cam.pan(p[0], p[1]);
+                const math::Vec3 t = cam.target();
+                clamped = clamped && std::abs(t.x) <= 8.0f + 1e-4f && std::abs(t.z) <= 8.0f + 1e-4f &&
+                          (std::abs(std::abs(t.x) - 8.0f) < 1e-3f || std::abs(std::abs(t.z) - 8.0f) < 1e-3f);
+            }
+            cam.clearTargetBounds();
+            checks_->check(kPanClamp, clamped);
+            resetCamera(r);
+
+            const std::vector<math::Vec3> corners{{-10, 0, -10}, {10, 0, -10}, {-10, 0, 10}, {10, 0, 10}};
+            Camera wide = cam;
+            wide.setDistanceLimits(1.0f, 200.0f, 12.0f);
+            wide.setViewportSize(1280, 720);
+            wide.setPerspective(cam.fovYRadians(), 1280.0f / 720.0f, 0.1f, 300.0f);
+            wide.frame(corners, 0.05f);
+            Camera tall = wide;
+            tall.setViewportSize(1080, 1920);
+            tall.setPerspective(cam.fovYRadians(), 1080.0f / 1920.0f, 0.1f, 300.0f);
+            tall.frame(corners, 0.05f);
+            bool fit = tall.distance() > wide.distance();
+            for (const auto& c : corners) fit = fit && tall.inView(c, 0.05f) && wide.inView(c, 0.05f);
+            checks_->check(kPortraitFit, fit);
+            aout << "[cameralab] auto-drive done: " << checks_->passedCount() << "/"
+                 << checks_->size() << " checks green" << std::endl;
+            step_ = 12;
+            break;
+        }
         default:
             break;
     }

@@ -65,8 +65,10 @@ Game scenes: `TitleScene` → `HubScene` (lab list + BATTLE) → `BattleScene`.
 Battle is split into `BattleData.h` (shared `battle::Data`),
 `BattleContent` (assets/level), `BattleRules` (paths, attacks, pick, save),
 `BattleInput` (taps), `BattleHUD` (DebugPanel menus), `BattleScene` (lifecycle).
-Labs: `FxLab` (particles/sky/weather, 12 checks), `CameraLab` (orbit/limits/
-ortho/forward/follow/pick/input, 11 checks), `RenderLab` (texture, primitives,
+Labs: `FxLab` (particles/sky/weather,
+damage number, status icon, trail, 15 checks), `CameraLab` (orbit/limits/
+ortho/forward/follow/pick/input, frame attack, pan clamp, portrait fit,
+14 checks), `RenderLab` (texture, primitives,
 skinning, shadows, depthWrite, bounds, bone clamp, 9 checks + opt-in heavy
 mesh), `SystemsLab` (save slots, Saveable, Bag/Equip/Catalog, custom
 calendar, SFX voices, music switch, volume buses, turn flow, win/lose,
@@ -179,6 +181,9 @@ Fixes made here that upstream lacks (keep this list current):
   `battle.sav`), `ResultScene`, `Unit::unitId` (saved; `Unit::load` goes
   through `setCell` so the grid stays in sync), roster keyed by id,
   `turn::Manager` rounds/untimed mode.
+- Camera: `setTargetBounds`, `inView`, `frame`; `pan` horizontal scale
+  fixed (was `aspect`× too fast).
+- `game/BattleFx`: floating damage numbers, status icons, projectile trail.
 - Font: punctuation glyphs (`. : % = < > / ( ) , ? * ' _`) and lowercase →
   uppercase shapes. Regenerate with `python3 tools/gen_font.py > src/engine/FontData.h`
   (`tools/gen_font.py` is copied from upstream and extended).

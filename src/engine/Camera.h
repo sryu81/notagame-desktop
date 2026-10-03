@@ -2,6 +2,7 @@
 #define NOT_A_GAME_CAMERA_H
 
 #include <functional>
+#include <vector>
 
 #include "Math.h"
 
@@ -34,6 +35,10 @@ public:
     void setTerrainHeightFn(TerrainHeightFn fn, float offset = 0.5f);
     void setTarget(const math::Vec3& t);
     void pan(float dx, float dy);
+    void setTargetBounds(const math::Vec2& minXZ, const math::Vec2& maxXZ);
+    void clearTargetBounds() { hasBounds_ = false; }
+    bool inView(const math::Vec3& p, float margin = 0.0f) const;
+    void frame(const std::vector<math::Vec3>& points, float margin = 0.1f);
 
     // 2.5D orbit controls
     void setForward(const math::Vec3& forward);
@@ -61,6 +66,7 @@ public:
 
 private:
     void recomputeEyeFromOrbit();
+    void clampTarget();
 
     math::Mat4 view_;
     math::Mat4 projection_;
@@ -88,6 +94,10 @@ private:
     float maxPitchDeg_ = kMaxPitchDeg;
     float minYawDeg_   = kMinYawDeg;
     float maxYawDeg_   = kMaxYawDeg;
+
+    bool hasBounds_ = false;
+    math::Vec2 boundsMin_{0.0f, 0.0f};
+    math::Vec2 boundsMax_{0.0f, 0.0f};
 
     TerrainHeightFn terrainHeightFn_;
     float terrainOffset_ = 0.5f;

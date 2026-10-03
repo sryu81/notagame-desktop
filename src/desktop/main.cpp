@@ -26,6 +26,7 @@
 #include "Rules.h"
 #include "AI.h"
 #include "BattleFlow.h"
+#include "BattleFx.h"
 #include "LevelSpawner.h"
 #include "TitleScene.h"
 #include "desktop/PngWriter.h"
@@ -238,6 +239,7 @@ int main(int argc, char** argv) {
     rules::selfTest();
     ai::selfTest();
     flow::selfTest();
+    fx::selfTest();
     turn::Manager::selfTest();
     action::Manager::selfTest();
     save::selfTest(platform.dataPath().c_str());

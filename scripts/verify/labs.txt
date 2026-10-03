@@ -8,30 +8,30 @@
 1700  shot animlab.png
 1705  tap 1146 366
 1770  tap 640 257
-3570  shot fxlab.png
-3575  tap 1146 412
-3640  tap 640 309
-4160  shot cameralab.png
-4165  tap 1146 504
-4230  tap 640 361
-4430  shot systemslab.png
-4435  tap 1146 550
-4500  shot result.png
-4505  tap 640 498
-4600  tap 640 413
-4900  shot unitlab.png
-4905  tap 1146 136
-4970  tap 640 465
-5450  shot tacticslab.png
-5455  tap 1146 366
-5520  tap 640 517
-5820  shot levellab.png
-5825  tap 1146 182
-5890  tap 640 569
-6490  shot ailab.png
-6495  tap 1146 182
-6560  tap 640 621
-6760  shot battle.png
-6765  tap 1172 630
-6830  shot hub.png
-6860  quit
+3690  shot fxlab.png
+3695  tap 1146 412
+3760  tap 640 309
+4280  shot cameralab.png
+4285  tap 1146 504
+4350  tap 640 361
+4550  shot systemslab.png
+4555  tap 1146 550
+4620  shot result.png
+4625  tap 640 498
+4720  tap 640 413
+5020  shot unitlab.png
+5025  tap 1146 136
+5090  tap 640 465
+5570  shot tacticslab.png
+5575  tap 1146 366
+5640  tap 640 517
+5940  shot levellab.png
+5945  tap 1146 182
+6010  tap 640 569
+6610  shot ailab.png
+6615  tap 1146 182
+6680  tap 640 621
+6880  shot battle.png
+6885  tap 1172 630
+6950  shot hub.png
+6980  quit

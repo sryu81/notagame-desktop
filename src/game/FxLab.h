@@ -4,6 +4,9 @@
 #include <memory>
 #include <vector>
 
+#include "Action.h"
+#include "BattleFx.h"
+#include "BattleGrid.h"
 #include "Climate.h"
 #include "DebugPanel.h"
 #include "EventBus.h"
@@ -16,7 +19,7 @@
 #include "Stars.h"
 #include "UIRoot.h"
 
-namespace game { class GameState; }
+namespace game { class GameState; class Unit; }
 
 class FxLab : public Scene {
 public:
@@ -35,6 +38,8 @@ private:
     void checkParticles(Renderer& r);
     void checkInstant(Renderer& r);
     void setWeather(engine::wx::Weather w);
+    void startGameplayFx(Renderer& r);
+    void updateGameplayFx(float dt, Renderer& r);
 
     game::GameState& gs_;
     std::unique_ptr<game::LabAssets> assets_;
@@ -72,6 +77,29 @@ private:
     float burstTimer_ = 0.0f;
     bool  starsAtNight_ = false;
     bool  starsOffNoon_ = false;
+
+    std::unique_ptr<SceneNode> fxRoot_;
+    SceneNode* projRoot_ = nullptr;
+    std::unique_ptr<grid::BattleGrid> fxGrid_;
+    std::unique_ptr<game::Unit> archer_;
+    std::unique_ptr<game::Unit> dummy_;
+    std::unique_ptr<action::Manager> fxActions_;
+    particle::Emitter trail_{256};
+    fx::FloatingTexts numbers_;
+    fx::StatusIcons icons_;
+    std::vector<math::Vec3> projPath_;
+    int   frame_ = 0;
+    int   hitFrame_ = -1;
+    int   numberFrame_ = -1;
+    float numberY0_ = 0.0f;
+    float numberA0_ = 0.0f;
+    bool  numberRose_ = false;
+    bool  numberFaded_ = false;
+    std::string numberText_;
+    bool  sawTrail_ = false;
+    bool  trailOff_ = false;
+    std::string iconSeen_;
+    bool  iconAbove_ = false;
 };
 
 #endif

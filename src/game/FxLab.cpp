@@ -9,6 +9,7 @@
 #include "Engine.h"
 #include "GameState.h"
 #include "HubScene.h"
+#include "Unit.h"
 
 namespace {
 
@@ -34,6 +35,10 @@ const char* kStarsNight   = "STARS AT NIGHT";
 const char* kStarKnobs    = "STAR KNOBS";
 const char* kLightning    = "LIGHTNING";
 const char* kBlendState   = "BLEND STATE";
+const char* kDamageNumber = "DAMAGE NUMBER";
+const char* kStatusIcon   = "STATUS ICON";
+const char* kTrail        = "TRAIL";
+constexpr int kBoltDamage = 5;
 
 const engine::wx::Weather kWx[] = {
     engine::wx::Weather::Clear, engine::wx::Weather::Rain, engine::wx::Weather::Storm};
@@ -142,7 +147,7 @@ void FxLab::enter(Renderer& r) {
     checks_ = std::make_unique<game::LabChecklist>(math::Vec2(16, 16));
     for (const char* row : {kBurstFades, kRainAlphaRow, kIboGrows, kGravityKnob, kShrinkFps,
                             kRainColor, kSkyKnobs, kStormMix, kStarsNight, kStarKnobs,
-                            kLightning, kBlendState})
+                            kLightning, kBlendState, kDamageNumber, kStatusIcon, kTrail})
         checks_->add(row);
     buildUI(r);
     restartAutoDrive();
@@ -165,6 +170,11 @@ void FxLab::exit(Renderer& r) {
     subs_.clear();
     r.setSkyConfig(savedSky_);
     r.setStarRenderConfig(savedStars_);
+    fxActions_.reset();
+    archer_.reset();
+    dummy_.reset();
+    fxGrid_.reset();
+    fxRoot_.reset();
     ui_.reset();
     panel_.reset();
     checks_.reset();
@@ -236,9 +246,109 @@ void FxLab::buildUI(Renderer& r) {
     panel_->addAction("BACK", [rptr, gs]() {
         rptr->sceneManager().replace(std::make_unique<HubScene>(*gs));
     });
+    auto layer = std::make_unique<ui::UIPanel>(math::Vec2(0, 0),
+        math::Vec2(static_cast<float>(w), static_cast<float>(h)), math::Vec4(0, 0, 0, 0));
+    numbers_.attach(layer.get());
+    icons_.attach(layer.get());
+    root->addChild(std::move(layer));
     root->addChild(panel_->build());
     root->addChild(checks_->build());
     ui_->setRoot(std::move(root));
+}
+
+void FxLab::startGameplayFx(Renderer& r) {
+    const Mesh* cube = assets_->mesh("cube");
+    const Model* cubeModel = assets_->model("cube");
+    const Material* lit = assets_->material("lit");
+    fxActions_ = std::make_unique<action::Manager>();
+    archer_.reset();
+    dummy_.reset();
+    fxGrid_ = std::make_unique<grid::BattleGrid>(8, 5, 1.0f);
+    fxRoot_ = std::make_unique<SceneNode>();
+    projRoot_ = fxRoot_->addChild();
+    auto unitAt = [&](int x, unit::Faction f, math::Vec3 color) {
+        SceneNode* n = fxRoot_->addChild();
+        const math::Vec3 p = fxGrid_->cellToWorld(x, 4);
+        n->setLocal(math::Mat4::translation(p + math::Vec3(0.0f, 0.4f, 0.0f)) *
+                    math::Mat4::scale(math::Vec3(0.5f, 0.8f, 0.5f)));
+        n->addDrawable({cube, cubeModel, color, lit});
+        auto u = std::make_unique<game::Unit>(n, f, unit::Stats{12, 6, 1, 3, 6});
+        u->setCell(math::Vec2(static_cast<float>(x), 4.0f));
+        u->setGrid(fxGrid_.get());
+        return u;
+    };
+    archer_ = unitAt(1, unit::Faction::Player, math::Vec3(0.3f, 0.8f, 0.4f));
+    dummy_ = unitAt(5, unit::Faction::Enemy, math::Vec3(0.85f, 0.25f, 0.2f));
+    r.camera().setViewLookAt(math::Vec3(0.0f, 4.5f, 10.0f), math::Vec3(0.0f, 0.6f, 2.0f), math::Vec3(0, 1, 0));
+
+    frame_ = 0;
+    hitFrame_ = numberFrame_ = -1;
+    numberRose_ = numberFaded_ = sawTrail_ = trailOff_ = iconAbove_ = false;
+    numberText_.clear();
+    iconSeen_.clear();
+    projPath_.clear();
+    trail_.clear();
+    numbers_.clear();
+
+    game::Unit* target = dummy_.get();
+    auto bolt = std::make_unique<action::RangedAttackAction>(
+        archer_.get(), target, kBoltDamage, fxGrid_.get(), projRoot_,
+        SceneNode::Drawable{cube, cubeModel, math::Vec3(1.0f, 0.9f, 0.3f), lit}, true, 6.0f);
+    bolt->setStatus(unit::StatusEffect{unit::StatusType::Stunned, 1, 0});
+    bolt->setHitCallback([this, target]() {
+        hitFrame_ = frame_;
+        target->applyStatus({unit::StatusType::Poisoned, 2, 1});
+        const math::Mat4 m = target->node()->world();
+        const math::Vec3 head(m.m[12], m.m[13] + 1.4f, m.m[14]);
+        numbers_.spawn(head, std::to_string(kBoltDamage), math::Vec4(1.0f, 0.35f, 0.25f, 1.0f), 1.0f, 0.9f);
+        burst_.burst(math::Vec3(m.m[12], m.m[13], m.m[14]), 12, 2.0f, kBurstColor, 0.25f, 0.6f);
+    });
+    fxActions_->enqueue(std::move(bolt));
+}
+
+void FxLab::updateGameplayFx(float dt, Renderer& r) {
+    if (!fxActions_) return;
+    ++frame_;
+    fxActions_->update(dt);
+    if (!projRoot_->children().empty()) {
+        const math::Mat4 m = projRoot_->children().front()->world();
+        const math::Vec3 p(m.m[12], m.m[13], m.m[14]);
+        projPath_.push_back(p);
+        fx::emitTrail(trail_, p, dt);
+        sawTrail_ = true;
+    }
+    trail_.update(dt);
+    for (int i = 0; i < trail_.activeCount(); ++i) {
+        const auto& tp = trail_.particles()[i];
+        if (tp.age > 0.05f) continue;
+        float best = 1e9f;
+        for (const auto& q : projPath_) best = std::min(best, (tp.position - q).length());
+        if (best > 0.4f) trailOff_ = true;
+    }
+    numbers_.update(dt);
+    const int w = r.width() > 0 ? r.width() : 1280;
+    const int h = r.height() > 0 ? r.height() : 720;
+    numbers_.layout(r.camera(), w, h);
+    if (!numbers_.entries().empty()) {
+        const auto& e = numbers_.entries().front();
+        if (numberFrame_ < 0) {
+            numberFrame_ = frame_;
+            numberY0_ = e.screen.y;
+            numberA0_ = e.alpha();
+            numberText_ = e.text;
+        } else {
+            if (e.screen.y < numberY0_ - 5.0f) numberRose_ = true;
+            if (e.alpha() < numberA0_ - 0.3f) numberFaded_ = true;
+        }
+    }
+    icons_.update({archer_.get(), dummy_.get()}, r.camera(), w, h);
+    if (!icons_.textFor(1).empty()) {
+        iconSeen_ = icons_.textFor(1);
+        math::Vec2 base;
+        const math::Mat4 m = dummy_->node()->world();
+        if (fx::worldToScreen(r.camera(), math::Vec3(m.m[12], m.m[13], m.m[14]), w, h, base))
+            iconAbove_ = icons_.screenFor(1).y < base.y;
+    }
 }
 
 void FxLab::onResize(int w, int h, Renderer& r) {
@@ -370,9 +480,28 @@ void FxLab::autoDrive(float dt, Renderer& r) {
             clock_.setTimeScale(1.0f);
             clock_.setTimeOfDay(12, 0, 0);
             timeLapse_ = false;
+            startGameplayFx(r);
+            step_ = 7;
+            break;
+        case 7:
+            if (autoT_ < 30.2f || !fxActions_->isIdle()) break;
+            checks_->check(kTrail, sawTrail_ && !trailOff_ && projPath_.size() >= 5);
+            checks_->check(kDamageNumber, hitFrame_ >= 0 && numberFrame_ == hitFrame_ &&
+                                          numberText_ == std::to_string(kBoltDamage) && numberRose_ &&
+                                          numberFaded_ && numbers_.entries().empty());
+            if (!checks_->passed(kDamageNumber))
+                aout << "[fxlab] number hit=" << hitFrame_ << " seen=" << numberFrame_ << " rose=" << numberRose_
+                     << " faded=" << numberFaded_ << std::endl;
+            dummy_->clearStatuses();
+            step_ = 8;
+            break;
+        case 8:
+            if (autoT_ < 30.4f) break;
+            checks_->check(kStatusIcon, iconSeen_ == "STN PSN" && iconAbove_ && icons_.textFor(1).empty());
+            r.camera().setViewLookAt(kEye, kLookAt, math::Vec3(0, 1, 0));
             aout << "[fxlab] auto-drive done: " << checks_->passedCount() << "/"
                  << checks_->size() << " checks green" << std::endl;
-            step_ = 7;
+            step_ = 9;
             break;
         default:
             break;
@@ -461,6 +590,7 @@ void FxLab::update(float dt, Renderer& r) {
     }
 
     emitRain(dt, r);
+    updateGameplayFx(dt, r);
     burst_.update(dt);
     rain_.update(dt);
     if (root_) root_->update(dt);
@@ -469,6 +599,8 @@ void FxLab::update(float dt, Renderer& r) {
 
 void FxLab::render(Renderer& r) {
     r.renderSceneGraph(root_.get());
+    if (fxRoot_) r.renderSceneGraph(fxRoot_.get());
+    r.renderParticles(trail_);
     r.renderParticles(burst_);
     while (glGetError() != GL_NO_ERROR) {}
     r.renderParticles(rain_);

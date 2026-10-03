@@ -1,5 +1,7 @@
 #include "Camera.h"
 
+#include <algorithm>
+
 #include <cassert>
 #include <cmath>
 
@@ -119,8 +121,53 @@ void Camera::setTerrainHeightFn(TerrainHeightFn fn, float offset) {
     terrainOffset_ = offset;
 }
 
+void Camera::setTargetBounds(const math::Vec2& minXZ, const math::Vec2& maxXZ) {
+    boundsMin_ = minXZ;
+    boundsMax_ = maxXZ;
+    hasBounds_ = true;
+    setTarget(target_);
+}
+
+void Camera::clampTarget() {
+    if (!hasBounds_) return;
+    target_.x = std::clamp(target_.x, boundsMin_.x, boundsMax_.x);
+    target_.z = std::clamp(target_.z, boundsMin_.y, boundsMax_.y);
+}
+
+bool Camera::inView(const math::Vec3& p, float margin) const {
+    const math::Mat4 vp = viewProjection();
+    const float x = vp.m[0] * p.x + vp.m[4] * p.y + vp.m[8] * p.z + vp.m[12];
+    const float y = vp.m[1] * p.x + vp.m[5] * p.y + vp.m[9] * p.z + vp.m[13];
+    const float w = vp.m[3] * p.x + vp.m[7] * p.y + vp.m[11] * p.z + vp.m[15];
+    if (w <= 1e-6f) return false;
+    const float lim = 1.0f - margin;
+    return std::abs(x / w) <= lim && std::abs(y / w) <= lim;
+}
+
+void Camera::frame(const std::vector<math::Vec3>& points, float margin) {
+    if (points.empty()) return;
+    math::Vec3 c(0.0f);
+    for (const auto& p : points) c += p;
+    setTarget(c * (1.0f / static_cast<float>(points.size())));
+    auto fits = [&]() {
+        for (const auto& p : points) if (!inView(p, margin)) return false;
+        return true;
+    };
+    float lo = hasDistanceLimits_ ? minDistance_ : 0.1f;
+    float hi = hasDistanceLimits_ ? maxDistance_ : 1000.0f;
+    setDistance(hi);
+    if (!fits()) return;
+    for (int i = 0; i < 40; ++i) {
+        const float mid = 0.5f * (lo + hi);
+        setDistance(mid);
+        if (fits()) hi = mid; else lo = mid;
+    }
+    setDistance(hi);
+}
+
 void Camera::setTarget(const math::Vec3& t) {
     target_ = t;
+    clampTarget();
     if (terrainHeightFn_) {
         target_.y = terrainHeightFn_(target_.x, target_.z) + terrainOffset_;
     }
@@ -133,11 +180,12 @@ void Camera::pan(float dx, float dy) {
     if (h < 1.0f) return;
     const float visH = 2.0f * distance_ * std::tan(fovY_ * 0.5f);
     const float visW = visH * aspect();
-    const float worldPerPxX = visW / h;
+    const float worldPerPxX = visW / static_cast<float>(std::max(width_, 1));
     const float worldPerPxY = visH / h;
     const math::Vec3 right(view_.m[0], view_.m[4], view_.m[8]);
     const math::Vec3 up(view_.m[1], view_.m[5], view_.m[9]);
     target_ += right * (-dx * worldPerPxX) + up * (dy * worldPerPxY);
+    clampTarget();
     if (terrainHeightFn_) {
         target_.y = terrainHeightFn_(target_.x, target_.z) + terrainOffset_;
     }
@@ -436,6 +484,38 @@ void Camera::selfTest() {
         assert(math::approxEqual(cam.yaw(), 30.0f, 0.05f));
         cam.setForward(math::Vec3(0.0f, 1.0f, 0.0f));
         assert(math::approxEqual(cam.yaw(), 30.0f, 0.05f));
+    }
+
+    {
+        Camera cam;
+        cam.setViewportSize(1280, 720);
+        cam.setPerspective(math::radians(30.0f), 1280.0f / 720.0f, 0.1f, 100.0f);
+        cam.setViewLookAt(math::Vec3(0, 6, 8), math::Vec3(0, 0, 0), math::Vec3(0, 1, 0));
+        const float visW = 2.0f * cam.distance() * std::tan(math::radians(15.0f)) * cam.aspect();
+        cam.pan(-1280.0f, 0.0f);
+        assert(math::approxEqual(cam.target().x, visW, 1e-3f));
+        cam.setTargetBounds(math::Vec2(-2, -3), math::Vec2(2, 3));
+        assert(math::approxEqual(cam.target().x, 2.0f));
+        cam.pan(1e5f, -1e5f);
+        assert(math::approxEqual(cam.target().x, -2.0f) && cam.target().z >= -3.0f && cam.target().z <= 3.0f);
+        cam.clearTargetBounds();
+
+        cam.setDistanceLimits(1.0f, 80.0f, 10.0f);
+        const std::vector<math::Vec3> pts{{-4, 0, -4}, {4, 0, 4}, {-4, 0, 4}, {4, 0, -4}};
+        cam.frame(pts, 0.05f);
+        for (const auto& p : pts) assert(cam.inView(p, 0.05f));
+        const float wide = cam.distance();
+        cam.setDistance(wide * 0.9f);
+        bool allIn = true;
+        for (const auto& p : pts) allIn = allIn && cam.inView(p, 0.05f);
+        assert(!allIn);
+
+        Camera tall = cam;
+        tall.setViewportSize(1080, 1920);
+        tall.setPerspective(math::radians(30.0f), 1080.0f / 1920.0f, 0.1f, 100.0f);
+        tall.frame(pts, 0.05f);
+        for (const auto& p : pts) assert(tall.inView(p, 0.05f));
+        assert(tall.distance() > wide);
     }
 
     aout << "[camera] setters self-test PASS" << std::endl;

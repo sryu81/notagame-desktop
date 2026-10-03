@@ -556,10 +556,19 @@ Changes:
   keyed by `unitId`; battle save/restore through `Saveable` replaces the
   fixed-struct `battle.sav`. Rows: `turn ends on idle`, `win/lose each
   condition`, `result scene`, `save mid-battle == restore`, `roster by id`.
-- **CameraLab + battle camera (C1)**: follow the active unit, frame
+- **CameraLab + battle camera (C1)** — done 2026-10-03, 14/14 rows.
+  `Camera::setTargetBounds` (clamped in `setTarget`/`pan`), `inView`,
+  `frame(points, margin)` (centroid + tightest distance by bisection).
+  Fixed `Camera::pan` moving `aspect`× too far horizontally (divided by
+  height instead of width). Battle wiring (follow active unit, frame
+  attacks) is P3. Original text: follow the active unit, frame
   attacker+target during an attack, pan clamped to grid bounds, portrait
   aspect. Rows: `frames attack`, `pan clamp`, `portrait fit`.
-- **FxLab + gameplay FX (X1)**: hit burst on `kHit`, projectile trail,
+- **FxLab + gameplay FX (X1)** — done 2026-10-03, 15/15 rows.
+  `game/BattleFx`: `fx::FloatingTexts` (pooled UIText, world-anchored,
+  rise + fade), `fx::StatusIcons` (STN/PSN above heads), `fx::emitTrail`,
+  `fx::worldToScreen`. FxLab ends with a stun bolt: trail, hit burst,
+  damage number, status icon. Original text: hit burst on `kHit`, projectile trail,
   floating damage numbers (new UI text effect), status icon while
   stunned/poisoned. Rows: `damage number`, `status icon`, `trail`.
 

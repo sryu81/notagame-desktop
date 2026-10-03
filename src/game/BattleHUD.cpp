@@ -95,9 +95,10 @@ void updateHUD(float dt, Renderer& r) {
                         d().mode == Mode::Menu && d().outcome == flow::Outcome::Ongoing && !d().flow->waiting();
     d().menu.show(menuOn ? gui::legalActions(*d().grid, *d().turnUnit, d().units, d().turnState, d().tun)
                          : std::vector<gui::Action>{});
+    const game::Unit* shown = d().hovered ? d().hovered : d().selected;
     std::string name;
-    for (size_t k = 0; k < d().units.size(); ++k) if (d().units[k] == d().selected) name = d().names[k];
-    d().card.show(d().selected, name);
+    for (size_t k = 0; k < d().units.size(); ++k) if (d().units[k] == shown) name = d().names[k];
+    d().card.show(shown, name);
     if (d().turns) d().bar.update(*d().turns, d().units, d().names);
     d().numbers.update(dt);
     d().numbers.layout(r.camera(), w, h);

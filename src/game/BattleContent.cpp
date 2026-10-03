@@ -146,6 +146,10 @@ void createContent(Renderer& r, game::GameState& gs) {
     d().ring->addDrawable({d().assets->mesh("plane"), d().assets->model("plane"),
                            math::Vec3(1.0f, 0.95f, 0.15f), d().unlitMat});
     d().ring->setLocal(math::Mat4::scale(math::Vec3(0.0f, 1.0f, 0.0f)));
+    d().hoverRing = std::make_unique<SceneNode>();
+    d().hoverRing->addDrawable({d().assets->mesh("plane"), d().assets->model("plane"),
+                                math::Vec3(0.4f, 0.85f, 1.0f), d().unlitMat});
+    d().hoverRing->setLocal(math::Mat4::scale(math::Vec3(0.0f, 1.0f, 0.0f)));
     d().savePath = r.dataPath() + "/battle_" + std::to_string(d().levelId) + ".sav";
 
     Camera& cam = r.camera();

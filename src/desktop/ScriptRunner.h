@@ -10,7 +10,7 @@ namespace desktop {
 
 class ScriptRunner {
 public:
-    enum class Kind { Tap, Down, Move, Up, Key, Shot, Quit };
+    enum class Kind { Tap, Down, Move, Up, Hover, Key, Shot, Quit };
     struct Command {
         int frame = 0;
         Kind kind = Kind::Tap;

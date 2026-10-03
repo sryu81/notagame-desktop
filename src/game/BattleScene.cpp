@@ -49,8 +49,9 @@ void BattleScene::enter(Renderer& r) {
     battle::buildHUD(r, gs_);
 
     Renderer* rptr = &r;
-    d().subs.push_back(EventBus::on<PointerDownEvent>([rptr](const PointerDownEvent& e) {
-        battle::handlePointerDown(e.x, e.y, *rptr);
+    d().subs.push_back(EventBus::on<TapEvent>([rptr](const TapEvent& e) { battle::handleTap(e.x, e.y, *rptr); }));
+    d().subs.push_back(EventBus::on<HoverEvent>([rptr](const HoverEvent& e) {
+        battle::handleHover(e.x, e.y, *rptr);
     }));
 }
 
@@ -120,6 +121,14 @@ void BattleScene::update(float dt, Renderer& r) {
     } else {
         d().ring->setLocal(math::Mat4::scale(math::Vec3(0.0f, 1.0f, 0.0f)));
     }
+    if (d().hovered && !d().hovered->isDead()) {
+        const math::Vec3 p = d().grid->cellToWorld(static_cast<int>(d().hovered->cell().x),
+                                                   static_cast<int>(d().hovered->cell().y));
+        d().hoverRing->setLocal(math::Mat4::translation(math::Vec3(p.x, p.y + 0.085f, p.z)) *
+                                math::Mat4::scale(math::Vec3(0.8f, 1.0f, 0.8f)));
+    } else {
+        d().hoverRing->setLocal(math::Mat4::scale(math::Vec3(0.0f, 1.0f, 0.0f)));
+    }
     battle::updateHUD(dt, r);
 }
 
@@ -130,6 +139,7 @@ void BattleScene::render(Renderer& r) {
     }
     r.renderSceneGraph(d().root.get());
     r.renderSceneGraph(d().overlay.get());
+    r.renderSceneGraph(d().hoverRing.get());
     r.renderSceneGraph(d().ring.get());
     r.renderParticles(d().trail);
     r.renderParticles(d().particles);

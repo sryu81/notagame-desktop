@@ -234,49 +234,6 @@ void updateTurns(float dt, Renderer& r, game::GameState& gs) {
     if (!playerControls(d().turnUnit)) stepAI(r);
 }
 
-game::Unit* unitAtCell(const math::Vec2& c) {
-    for (game::Unit* u : d().units)
-        if (!u->isDead() && u->cell().x == c.x && u->cell().y == c.y) return u;
-    return nullptr;
-}
-
-game::Unit* pickUnit(float x, float y, Renderer& r) {
-    const picking::Ray ray = r.pickingRay(x, y);
-    game::Unit* best = nullptr;
-    float bestDist = std::numeric_limits<float>::infinity();
-    for (game::Unit* u : d().units) {
-        if (!u->pickable()) continue;
-        std::vector<picking::HitShape> shapes;
-        std::function<void(SceneNode*)> walk = [&](SceneNode* n) {
-            for (const auto& dr : n->drawables())
-                if (dr.mesh) shapes.push_back(picking::fromMesh(*dr.mesh, n->world()));
-            for (const auto& c : n->children()) walk(c.get());
-        };
-        walk(u->node());
-        if (shapes.empty()) continue;
-        const picking::Hit hit = picking::pickRay(ray, shapes);
-        if (hit.valid && hit.distance < bestDist) { best = u; bestDist = hit.distance; }
-    }
-    return best;
-}
-
-bool cellAtScreen(float x, float y, Renderer& r, math::Vec2& out) {
-    const picking::Ray ray = r.pickingRay(x, y);
-    if (std::abs(ray.direction.y) < 1e-6f) return false;
-    float best = std::numeric_limits<float>::infinity();
-    for (int cy = 0; cy < d().grid->height(); ++cy)
-        for (int cx = 0; cx < d().grid->width(); ++cx) {
-            const float t = (d().grid->cellY(cx, cy) - ray.origin.y) / ray.direction.y;
-            if (t < 0.0f || t >= best) continue;
-            const math::Vec2 c = d().grid->worldToCell(ray.origin + ray.direction * t);
-            if (static_cast<int>(c.x) == cx && static_cast<int>(c.y) == cy) {
-                best = t;
-                out = math::Vec2(static_cast<float>(cx), static_cast<float>(cy));
-            }
-        }
-    return best < std::numeric_limits<float>::infinity();
-}
-
 void saveGame() {
     if (d().savePath.empty() || !d().turns) return;
     uint32_t state = d().rng->state();

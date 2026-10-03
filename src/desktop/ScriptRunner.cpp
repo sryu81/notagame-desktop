@@ -29,6 +29,7 @@ bool ScriptRunner::parseLine(const std::string& line, Command& out, std::string&
     if (cmd == "down")      { out.kind = Kind::Down; return needXY(); }
     if (cmd == "move")      { out.kind = Kind::Move; return needXY(); }
     if (cmd == "up")        { out.kind = Kind::Up;   return needXY(); }
+    if (cmd == "hover")     { out.kind = Kind::Hover; return needXY(); }
     if (cmd == "key") {
         out.kind = Kind::Key;
         if (in >> out.key) return true;
@@ -86,6 +87,7 @@ void ScriptRunner::dispatch(const Command& c, Renderer& r) {
         case Kind::Down: r.pointerDown(0, c.x, c.y); break;
         case Kind::Move: r.pointerMove(0, c.x, c.y); break;
         case Kind::Up:   r.pointerUp(0, c.x, c.y); break;
+        case Kind::Hover: r.hover(c.x, c.y); break;
         case Kind::Key:  EventBus::emit<KeyDownEvent>(c.key); break;
         default: break;
     }
@@ -100,6 +102,7 @@ void ScriptRunner::selfTest() {
     assert(parseLine("7 key 51", c, err) && c.kind == Kind::Key && c.key == 51);
     assert(parseLine("9 shot out/a.png", c, err) && c.kind == Kind::Shot && c.path == "out/a.png");
     assert(parseLine("10 quit", c, err) && c.kind == Kind::Quit);
+    assert(parseLine("11 hover 3 4", c, err) && c.kind == Kind::Hover && c.x == 3.0f);
     assert(!parseLine("10 tap 5", c, err));
     assert(!parseLine("10 jump 1 2", c, err));
     assert(!parseLine("tap 1 2", c, err));

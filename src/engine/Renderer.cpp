@@ -473,9 +473,15 @@ void Renderer::pointerMove(int32_t id, float x, float y) {
 }
 
 void Renderer::pointerUp(int32_t id, float x, float y) {
+    const bool dragged = pan_.dragging;
     pan_.active   = false;
     pan_.dragging = false;
     EventBus::emit<PointerUpEvent>(id, x, y);
+    if (!dragged) EventBus::emit<TapEvent>(id, x, y);
+}
+
+void Renderer::hover(float x, float y) {
+    EventBus::emit<HoverEvent>(x, y);
 }
 
 void Renderer::scroll(float delta) {

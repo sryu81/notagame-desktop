@@ -22,6 +22,19 @@ struct PointerMoveEvent {
     PointerMoveEvent(int id, float x_, float y_) : pointerId(id), x(x_), y(y_) {}
 };
 
+struct TapEvent {
+    int pointerId;
+    float x;
+    float y;
+    TapEvent(int id, float x_, float y_) : pointerId(id), x(x_), y(y_) {}
+};
+
+struct HoverEvent {
+    float x;
+    float y;
+    HoverEvent(float x_, float y_) : x(x_), y(y_) {}
+};
+
 struct KeyDownEvent {
     int keyCode;
     explicit KeyDownEvent(int code) : keyCode(code) {}

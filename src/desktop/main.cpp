@@ -22,6 +22,7 @@
 #include "RenderLab.h"
 #include "SystemsLab.h"
 #include "LevelLab.h"
+#include "PickLab.h"
 #include "TacticsLab.h"
 #include "UILab.h"
 #include "UnitLab.h"
@@ -30,6 +31,7 @@
 #include "BattleFlow.h"
 #include "BattleFx.h"
 #include "GameUI.h"
+#include "Picker.h"
 #include "LevelSpawner.h"
 #include "TitleScene.h"
 #include "desktop/PngWriter.h"
@@ -139,9 +141,10 @@ void onMouseButton(GLFWwindow* window, int button, int action, int) {
 
 void onCursorPos(GLFWwindow* window, double x, double y) {
     auto& in = input(window);
-    if (!in.renderer || !in.mouseDown) return;
+    if (!in.renderer) return;
     cursorToFramebuffer(window, x, y);
-    in.renderer->pointerMove(0, static_cast<float>(x), static_cast<float>(y));
+    if (in.mouseDown) in.renderer->pointerMove(0, static_cast<float>(x), static_cast<float>(y));
+    else in.renderer->hover(static_cast<float>(x), static_cast<float>(y));
 }
 
 void onScroll(GLFWwindow* window, double, double dy) {
@@ -179,6 +182,7 @@ std::unique_ptr<Scene> makeStartScene(const std::string& name, game::GameState& 
     if (name == "levellab")   return std::make_unique<LevelLab>(gs);
     if (name == "ailab")      return std::make_unique<AILab>(gs);
     if (name == "uilab")      return std::make_unique<UILab>(gs);
+    if (name == "picklab")    return std::make_unique<PickLab>(gs);
     if (name != "title") aout << "[desktop] unknown --start '" << name << "', using title" << std::endl;
     return std::make_unique<TitleScene>(gs);
 }
@@ -247,6 +251,7 @@ int main(int argc, char** argv) {
     flow::selfTest();
     fx::selfTest();
     gui::selfTest();
+    pick::selfTest();
     turn::Manager::selfTest();
     action::Manager::selfTest();
     save::selfTest(platform.dataPath().c_str());

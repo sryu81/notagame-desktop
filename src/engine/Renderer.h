@@ -28,6 +28,7 @@ public:
     void pointerDown(int32_t id, float x, float y);
     void pointerMove(int32_t id, float x, float y);
     void pointerUp(int32_t id, float x, float y);
+    void hover(float x, float y);
     void scroll(float delta);
     void render();
 

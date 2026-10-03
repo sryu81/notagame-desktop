@@ -19,6 +19,7 @@
 #include "LabAssets.h"
 #include "LabChecklist.h"
 #include "LevelLoader.h"
+#include "Picker.h"
 #include "Turn.h"
 #include "UnitCatalog.h"
 
@@ -61,6 +62,7 @@ struct Data {
     std::unique_ptr<SceneNode> root;
     std::unique_ptr<SceneNode> overlay;
     std::unique_ptr<SceneNode> ring;
+    std::unique_ptr<SceneNode> hoverRing;
     SceneNode* projRoot = nullptr;
 
     std::unique_ptr<grid::BattleGrid> grid;
@@ -81,6 +83,8 @@ struct Data {
     ai::Plan aiPlan;
     std::vector<math::Vec2> highlight;
     const game::Unit* selected = nullptr;
+    const game::Unit* hovered = nullptr;
+    pick::Picker picker;
     flow::Outcome outcome = flow::Outcome::Ongoing;
     float resultTimer = 0.0f;
     bool framing = false;
@@ -125,7 +129,8 @@ void createContent(Renderer& r, game::GameState& gs);
 void buildHUD(Renderer& r, game::GameState& gs);
 void updateHUD(float dt, Renderer& r);
 
-void handlePointerDown(float x, float y, Renderer& r);
+void handleTap(float x, float y, Renderer& r);
+void handleHover(float x, float y, Renderer& r);
 
 void updateTurns(float dt, Renderer& r, game::GameState& gs);
 void addChecklistRows(game::LabChecklist& c);
@@ -134,9 +139,6 @@ bool playerControls(const game::Unit* u);
 void playerMove(const math::Vec2& cell);
 void playerAttack(game::Unit* target, Renderer& r);
 void showHighlight(const std::vector<math::Vec2>& cells, const math::Vec3& color);
-game::Unit* pickUnit(float x, float y, Renderer& r);
-bool cellAtScreen(float x, float y, Renderer& r, math::Vec2& out);
-game::Unit* unitAtCell(const math::Vec2& c);
 void saveGame();
 void loadGame();
 

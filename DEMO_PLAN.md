@@ -662,6 +662,16 @@ Open decisions (from the review):
 5. Cube rigs: keep as fallback visual or delete (and `MoveAction`'s
    cube-rig code).
 
+### P2c — PickLab (picking)
+
+Status: done 2026-10-03, 8/8 rows. Replaces bounding-sphere ray picks in
+the battle (oversized spheres, bind-pose skinned bounds, pick on
+pointer-down) with `game/Picker`: screen-space body capsule → unit on
+the tapped cell → 28 px tolerance, intent preference, tap-to-cycle,
+taps only on release without drag (`TapEvent`), hover on desktop
+(`HoverEvent`). Rows: body over cell, cell pick, tolerance, corpse,
+intent, cycle, drag no tap, hover.
+
 ### P4 — Engine gaps (only after the labs show the need)
 
 - Real CC0 humanoid swapped in for `test_rig.glb`; AnimLab rows must still pass.

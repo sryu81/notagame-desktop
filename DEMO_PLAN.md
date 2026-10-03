@@ -574,6 +574,16 @@ Changes:
 
 #### P2b.6 UILab — game UI (not DebugPanel)
 
+Status: done 2026-10-03, 4/4 rows green. `game/GameUI` (`gui::`):
+`Layout::compute(w, h)` (landscape: menu bottom-right, card bottom-left,
+turn bar top; portrait: menu row along the bottom, card above it, bar on
+top; control unit = min(w, h)/14 clamped to 48–120 px), `legalActions`
+(Move hidden once moved or nothing reachable, Attack only when
+`rules::canAttack` passes), `ActionMenu`, `UnitCard`, `TurnOrderBar`,
+`upcoming()`. The portrait row checks 1080×1920 and 720×1280 rects
+(menu, card, bar) for ≥ 48 px, in-bounds and no overlap. The hub itself
+(12 rows) is a dev menu and is below 48 px per row at 720 p.
+
 Promotes: `game/ui` widgets (action menu, unit card, turn-order bar).
 
 | Row | Observed condition |
@@ -653,7 +663,7 @@ Open decisions (from the review):
 
 ## 6. Suggested order
 
-Done: P0, P1, P2.1–P2.5, H1, P2b.1 UnitLab, P2b.2 TacticsLab, P2b.3 AILab, P2b.4 LevelLab.
+Done: P0, P1, P2.1–P2.5, H1, P2b.1–P2b.6 (all labs).
 
 1. H1 scripted input harness (`--script`, `--start`).
 2. UnitLab (U1–U3) — everything else spawns units through it.

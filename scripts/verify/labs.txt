@@ -1,37 +1,40 @@
 # Every lab's auto-drive, from the hub (run with --start hub), 1280x720 framebuffer.
-# Hub rows: RENDER 153, ANIM 205, FX 257, CAMERA 309, SYSTEMS 361, UNIT 413,
-# TACTICS 465, LEVEL 517, AI 569, BATTLE 621. Re-measure after adding a hub entry.
-30    tap 640 153
+# Hub rows: RENDER 151, ANIM 199, FX 247, CAMERA 294, SYSTEMS 342, UNIT 389,
+# TACTICS 437, LEVEL 485, AI 532, UI 580, BATTLE 627. Re-measure after adding a hub entry.
+30    tap 640 151
 330   shot renderlab.png
 335   tap 1146 366
-400   tap 640 205
+400   tap 640 199
 1700  shot animlab.png
 1705  tap 1146 366
-1770  tap 640 257
+1770  tap 640 247
 3690  shot fxlab.png
 3695  tap 1146 412
-3760  tap 640 309
+3760  tap 640 294
 4280  shot cameralab.png
 4285  tap 1146 504
-4350  tap 640 361
+4350  tap 640 342
 4550  shot systemslab.png
 4555  tap 1146 550
 4620  shot result.png
 4625  tap 640 498
-4720  tap 640 413
+4720  tap 640 389
 5020  shot unitlab.png
 5025  tap 1146 136
-5090  tap 640 465
+5090  tap 640 437
 5570  shot tacticslab.png
 5575  tap 1146 366
-5640  tap 640 517
+5640  tap 640 485
 5940  shot levellab.png
 5945  tap 1146 182
-6010  tap 640 569
+6010  tap 640 532
 6610  shot ailab.png
 6615  tap 1146 182
-6680  tap 640 621
-6880  shot battle.png
-6885  tap 1172 630
-6950  shot hub.png
-6980  quit
+6680  tap 640 580
+7080  shot uilab.png
+7085  tap 1146 213
+7150  tap 640 627
+7350  shot battle.png
+7355  tap 1172 630
+7420  shot hub.png
+7450  quit

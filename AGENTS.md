@@ -21,7 +21,7 @@ cmake --build build                   # incremental; new .cpp files picked up by
 ./build/not_a_game --assets ./assets  # asset dir (default <exe dir>/assets symlink)
 scripts/rebuild_run.sh                # rm -rf build, configure, build, launch
 scripts/rebuild_run.sh --asan -- --data ./save   # same in build-asan; args after -- go to game
-./build/not_a_game --start fxlab      # start scene: title hub battle renderlab animlab fxlab cameralab systemslab unitlab tacticslab levellab ailab
+./build/not_a_game --start fxlab      # start scene: title hub battle renderlab animlab fxlab cameralab systemslab unitlab tacticslab levellab ailab uilab
 ./build/not_a_game --script f.txt     # scripted input: "<frame> tap|down|move|up x y", "key code", "shot f.png", "quit"
 scripts/verify/run_labs.sh [out]      # ASan build, every lab auto-drive, fails on red check or sanitizer report
 ```
@@ -81,7 +81,8 @@ sight, cover/damage, ranged + stun; design toggles; 9 checks), `LevelLab`
 (.lvl v3 round trip, v2 compat, units by catalog, props, terrain vs
 cellY, win condition; 6 checks), `AILab` (20 seeded AI-vs-AI battles:
 legality, approach, attack in range, termination, determinism incl. a
-live replay; metrics; 5 checks). Each auto-drives its checklist; game helpers
+live replay; metrics; 5 checks), `UILab` (legal-action menu, unit card,
+turn-order bar, portrait layout; 4 checks). Each auto-drives its checklist; game helpers
 `ClipEvents` (events by clip name) and `FootIKRig` (skinned foot IK).
 Lab helpers: `DebugPanel` (row list), `LabChecklist` (green-on-pass rows),
 `LabAssets` (lit/skinned/unlit shaders + materials, plane/cube meshes).
@@ -184,6 +185,8 @@ Fixes made here that upstream lacks (keep this list current):
 - Camera: `setTargetBounds`, `inView`, `frame`; `pan` horizontal scale
   fixed (was `aspect`× too fast).
 - `game/BattleFx`: floating damage numbers, status icons, projectile trail.
+- `game/GameUI` (`gui::`): responsive `Layout`, `legalActions`,
+  `ActionMenu`, `UnitCard`, `TurnOrderBar`.
 - Font: punctuation glyphs (`. : % = < > / ( ) , ? * ' _`) and lowercase →
   uppercase shapes. Regenerate with `python3 tools/gen_font.py > src/engine/FontData.h`
   (`tools/gen_font.py` is copied from upstream and extended).
@@ -206,6 +209,5 @@ Verified: 47 selfTests PASS; title + battle render at 60 FPS on Mesa radeonsi
 
 Done: P0 B1–B8, P1 (hub, DebugPanel, LabChecklist, battle split, LabAssets),
 P2.1–P2.5 labs, H1 scripted harness, P2b.1 UnitLab, P2b.2 TacticsLab,
-P2b.3 AILab, P2b.4 LevelLab.
-Next: P2b.5 lab extensions (SystemsLab F1, CameraLab C1, FxLab X1) and
-P2b.6 UILab, then P3 battle wiring (DEMO_PLAN §6).
+P2b.3 AILab, P2b.4 LevelLab, P2b.5 F1/C1/X1, P2b.6 UILab.
+Next: P3 — wire the lab modules into BattleScene (DEMO_PLAN §3 P3, §6).

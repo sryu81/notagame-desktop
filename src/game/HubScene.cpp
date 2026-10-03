@@ -8,6 +8,7 @@
 #include "SystemsLab.h"
 #include "LevelLab.h"
 #include "TacticsLab.h"
+#include "UILab.h"
 #include "UnitLab.h"
 #include <GLES3/gl3.h>
 
@@ -36,6 +37,7 @@ std::vector<HubScene::Entry> HubScene::entries(game::GameState& gs) {
         {"TACTICS LAB", [g]() { return std::unique_ptr<Scene>(new TacticsLab(*g)); }},
         {"LEVEL LAB", [g]() { return std::unique_ptr<Scene>(new LevelLab(*g)); }},
         {"AI LAB", [g]() { return std::unique_ptr<Scene>(new AILab(*g)); }},
+        {"UI LAB", [g]() { return std::unique_ptr<Scene>(new UILab(*g)); }},
         {"BATTLE", [g]() { return std::unique_ptr<Scene>(new BattleScene(*g)); }},
     };
 }

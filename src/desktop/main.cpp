@@ -22,11 +22,13 @@
 #include "SystemsLab.h"
 #include "LevelLab.h"
 #include "TacticsLab.h"
+#include "UILab.h"
 #include "UnitLab.h"
 #include "Rules.h"
 #include "AI.h"
 #include "BattleFlow.h"
 #include "BattleFx.h"
+#include "GameUI.h"
 #include "LevelSpawner.h"
 #include "TitleScene.h"
 #include "desktop/PngWriter.h"
@@ -173,6 +175,7 @@ std::unique_ptr<Scene> makeStartScene(const std::string& name, game::GameState& 
     if (name == "tacticslab") return std::make_unique<TacticsLab>(gs);
     if (name == "levellab")   return std::make_unique<LevelLab>(gs);
     if (name == "ailab")      return std::make_unique<AILab>(gs);
+    if (name == "uilab")      return std::make_unique<UILab>(gs);
     if (name != "title") aout << "[desktop] unknown --start '" << name << "', using title" << std::endl;
     return std::make_unique<TitleScene>(gs);
 }
@@ -240,6 +243,7 @@ int main(int argc, char** argv) {
     ai::selfTest();
     flow::selfTest();
     fx::selfTest();
+    gui::selfTest();
     turn::Manager::selfTest();
     action::Manager::selfTest();
     save::selfTest(platform.dataPath().c_str());

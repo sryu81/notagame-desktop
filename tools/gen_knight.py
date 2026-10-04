@@ -212,7 +212,7 @@ def knight_model():
         k.add(sphere(6, 4), f"LowerLeg.{side}", "dark", M((0.11 * s, -0.06, 0.5), scale=(0.07, 0.06, 0.07)))
         k.add(limb(0.12, 0.14, 0.4, 1.12), f"LowerLeg.{side}", "steel", M((0.11 * s, 0.005, 0.3)))
         k.add(box(0.12, 0.18, 0.09), f"Foot.{side}", "dark", M((0.11 * s, -0.02, 0.045)))
-        k.add(limb(0.11, 0.09, 0.1, 0.5, 6), f"Foot.{side}", "dark", M((0.11 * s, -0.15, 0.04), (90, 0, 0)))
+        k.add(limb(0.11, 0.09, 0.1, 0.5, 6), f"Foot.{side}", "dark", M((0.11 * s, -0.15, 0.045), (90, 0, 0)))
 
     sword = Matrix.Translation((-0.28, -0.03, 0.82)) @ M(rot=(20, 0, 0))
     k.add(limb(0.035, 0.035, 0.16, 1.0, 6), "Hand.R", "leather", sword @ M(rot=(90, 0, 0)))
@@ -343,7 +343,7 @@ def knight_clips(mounted=False):
             (0.8, {"Hips": (-88, 0, 0), "Spine": (5, 0, 0), "Head": (10, 0, 0),
                    "UpperArm.L": (0, -50, 0), "UpperArm.R": (0, 50, 0),
                    "UpperLeg.L": (5, -8, 0), "UpperLeg.R": (5, 8, 0)},
-             {"Hips": (0, 0.25, -0.77)}),
+             {"Hips": (0, 0.13, -0.77)}),
         ]),
     }
     if not mounted:
@@ -361,15 +361,15 @@ def knight_clips(mounted=False):
                          for i, (t, _, _) in enumerate(w)])
     out["Death"] = (0.8, [
         (0.0, {}, {}),
-        (0.25, {"Spine": (-15, 0, 0), "Head": (-10, 0, 0)}, {}),
-        (0.5, {"Spine": (-25, 25, 0), "Head": (-20, 0, 0), "UpperArm.R": (0, 40, 0)}, {}),
-        (0.8, {"Spine": (-20, 45, 0), "Head": (-10, 20, 0), "UpperArm.L": (0, -30, 0),
-               "UpperArm.R": (-20, 30, 0)}, {}),
+        (0.25, {"Spine": (15, 0, 0), "Head": (10, 0, 0)}, {}),
+        (0.5, {"Spine": (35, 0, 8), "Head": (15, 0, 0), "UpperArm.R": (20, 10, 0)}, {}),
+        (0.8, {"Spine": (50, 0, 10), "Head": (25, 0, 0), "UpperArm.L": (30, 0, 0),
+               "UpperArm.R": (35, 20, 0)}, {}),
     ])
     return out
 
 
-def horse_clips():
+def horse_clips(mounted=False):
     def legs(fl, fr, bl, br):
         r = {}
         for n, (up, low) in (("FL", fl), ("FR", fr), ("BL", bl), ("BR", br)):
@@ -386,7 +386,16 @@ def horse_clips():
     strike = dict(legs((-30, 0), (-25, 10), (-5, 0), (-5, 0)), Body=(5, 0, 0), Neck=(12, 0, 0))
     fold = legs((-10, 30), (-10, 30), (10, -20), (10, -20))
     down = legs((-30, 60), (-15, 40), (-20, -40), (-35, -50))
-    return {
+    kneel = (0.8, [
+        (0.0, {}, {}),
+        (0.25, dict(legs((-15, 60), (-10, 50), (10, -20), (10, -20)), Body=(10, 0, 0), Neck=(10, 0, 0)),
+         {"Body": (0, 0, -0.15)}),
+        (0.5, dict(legs((-30, 100), (-30, 100), (30, -60), (30, -60)), Body=(6, 0, 0), Neck=(25, 0, 0)),
+         {"Body": (0, 0, -0.45)}),
+        (0.8, dict(legs((-35, 120), (-35, 120), (45, -100), (45, -100)), Body=(2, 0, 4), Neck=(35, 0, 0),
+                   HorseHead=(15, 0, 0)), {"Body": (0, 0, -0.6)}),
+    ])
+    clips = {
         "Idle": (2.0, [
             (0.0, {}, {}),
             (1.0, {"Neck": (6, 0, 0), "HorseHead": (5, 0, 0), "Tail": (0, 15, 0)}, {"Body": (0, 0, -0.01)}),
@@ -417,6 +426,9 @@ def horse_clips():
             (0.8, dict(down, Body=(0, 85, 0), Neck=(25, 0, 0), HorseHead=(10, 0, 0)), {"Body": (0.3, 0, -0.75)}),
         ]),
     }
+    if mounted:
+        clips["Death"] = kneel
+    return clips
 
 
 def merge_clips(a, b):
@@ -514,7 +526,24 @@ def build(scn, name, model, mat):
     return arm_ob, ob
 
 
-def animate(arm_ob, clips):
+def ground(arm_ob, mesh_ob, times, rest):
+    scn = bpy.context.scene
+    root = arm_ob.pose.bones[0]
+    mi = rest[root.name].inverted()
+    for t in times:
+        f = t * FPS
+        scn.frame_set(int(f), subframe=f - int(f))
+        dg = bpy.context.evaluated_depsgraph_get()
+        ev = mesh_ob.evaluated_get(dg)
+        me = ev.to_mesh()
+        low = min((mesh_ob.matrix_world @ v.co).z for v in me.vertices)
+        ev.to_mesh_clear()
+        root.location = root.location + mi @ Vector((0, 0, -low))
+        root.keyframe_insert("location", frame=f)
+    scn.frame_set(0)
+
+
+def animate(arm_ob, mesh_ob, clips):
     ad = arm_ob.animation_data_create()
     rest = {pb.name: pb.bone.matrix_local.to_3x3() for pb in arm_ob.pose.bones}
     for pb in arm_ob.pose.bones:
@@ -522,11 +551,8 @@ def animate(arm_ob, clips):
     for clip, (_, keys) in clips.items():
         act = bpy.data.actions.new(f"{arm_ob.name}_{clip}")
         ad.action = act
-        bones = set()
-        for _, rot, loc in keys:
-            bones |= set(rot) | set(loc)
         for t, rot, loc in keys:
-            for bn in sorted(bones):
+            for bn in rest:
                 pb = arm_ob.pose.bones[bn]
                 m = rest[bn]
                 mi = m.inverted()
@@ -535,6 +561,7 @@ def animate(arm_ob, clips):
                 pb.location = mi @ Vector(loc.get(bn, (0, 0, 0)))
                 pb.keyframe_insert("rotation_quaternion", frame=t * FPS)
                 pb.keyframe_insert("location", frame=t * FPS)
+        ground(arm_ob, mesh_ob, [k[0] for k in keys], rest)
         track = ad.nla_tracks.new()
         track.name = clip
         track.strips.new(clip, 0, act)
@@ -586,12 +613,12 @@ def main():
     jobs = [
         ("knight", knight, knight_clips(), -2.5),
         ("horse", horse, horse_clips(), 0.0),
-        ("knight_mounted", mounted, merge_clips(horse_clips(), knight_clips(mounted=True)), 2.5),
+        ("knight_mounted", mounted, merge_clips(horse_clips(mounted=True), knight_clips(mounted=True)), 2.5),
     ]
     report = {}
     for name, model, clips, x in jobs:
         arm_ob, mesh_ob = build(scn, name, model, mat)
-        animate(arm_ob, clips)
+        animate(arm_ob, mesh_ob, clips)
         export(scn, arm_ob, mesh_ob, ROOT / "assets" / f"{name}.glb")
         for track in arm_ob.animation_data.nla_tracks:
             track.mute = True

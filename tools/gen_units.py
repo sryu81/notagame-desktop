@@ -1,4 +1,5 @@
-"""Write assets/{knight,horse,knight_mounted,archer,goblin,mage}.glb.
+"""Write assets/{knight,horse,knight_mounted,archer,goblin,mage}.glb and
+static props assets/prop_{crate,rock,tree}.glb (1:1 game scale, no skeleton).
 
 Low-poly faceted units built from primitives, rigid skinning (one bone per
 part, weight 1.0), one mesh, one primitive, one material (assets/knight_palette.png,
@@ -40,12 +41,17 @@ COLORS = [
     ("goblin", (0.46, 0.62, 0.22)),
     ("green", (0.20, 0.42, 0.18)),
     ("purple", (0.42, 0.20, 0.58)),
+    ("stone", (0.53, 0.52, 0.50)),
+    ("bark", (0.40, 0.27, 0.15)),
+    ("leaf", (0.33, 0.58, 0.22)),
+    ("leafdark", (0.20, 0.42, 0.16)),
 ]
-CELL = 16
+CELL = 8
+COLS = 8
 PAL = 64
 UV = {}
 for _i, (_n, _c) in enumerate(COLORS):
-    UV[_n] = (((_i % 4) * CELL + CELL / 2) / PAL, ((_i // 4) * CELL + CELL / 2) / PAL)
+    UV[_n] = (((_i % COLS) * CELL + CELL / 2) / PAL, ((_i // COLS) * CELL + CELL / 2) / PAL)
 
 
 def M(loc=(0, 0, 0), rot=(0, 0, 0), scale=(1, 1, 1)):
@@ -367,6 +373,55 @@ def mage_model():
     return k
 
 
+def jitter(geo, amt, seed):
+    v, f = geo
+    out = []
+    for i, (x, y, z) in enumerate(v):
+        h = math.sin(i * 12.9898 + seed * 78.233) * 43758.5453
+        k = 1.0 + amt * ((h - math.floor(h)) - 0.5)
+        out.append((x * k, y * k, z * k))
+    return out, f
+
+
+def crate_model():
+    m = Model()
+    m.add(box(0.66, 0.66, 0.66), None, "wood", M((0, 0, 0.35)))
+    for sx in (1, -1):
+        for sy in (1, -1):
+            m.add(box(0.08, 0.08, 0.7), None, "bark", M((0.31 * sx, 0.31 * sy, 0.35)))
+    for z in (0.04, 0.66):
+        for sy in (1, -1):
+            m.add(box(0.7, 0.08, 0.08), None, "bark", M((0, 0.31 * sy, z)))
+            m.add(box(0.08, 0.7, 0.08), None, "bark", M((0.31 * sy, 0, z)))
+    for sy in (1, -1):
+        m.add(box(0.08, 0.02, 0.82), None, "bark", M((0, 0.335 * sy, 0.35), (0, 45, 0)))
+        m.add(box(0.02, 0.08, 0.82), None, "bark", M((0.335 * sy, 0, 0.35), (45, 0, 0)))
+    return m
+
+
+def rock_model():
+    m = Model()
+    m.add(jitter(sphere(10, 6), 0.35, 1), None, "stone", M((0, 0, 0.18), scale=(0.4, 0.34, 0.26)))
+    m.add(jitter(sphere(8, 5), 0.35, 2), None, "stone", M((0.26, -0.18, 0.1), scale=(0.18, 0.16, 0.14)))
+    m.add(jitter(sphere(8, 4), 0.3, 3), None, "leaf", M((-0.05, 0.02, 0.36), scale=(0.22, 0.18, 0.06)))
+    return m
+
+
+def tree_model():
+    m = Model()
+    m.add(limb(0.2, 0.2, 0.95, 0.6, 8), None, "bark", M((0, 0, 0.475)))
+    for a in (20, 140, 260):
+        m.add(prism(0.06, 0.16, segs=5, top=0), None, "bark",
+              M(rot=(0, 0, a)) @ M((0.1, 0, 0.04), (0, 70, 0)))
+    for sx in (1, -1):
+        m.along((0, 0, 0.72), (0.22 * sx, 0.05, 1.02), 0.07, 0.07, None, "bark", (0.7, 0.7), segs=6)
+    m.add(jitter(sphere(10, 6), 0.25, 4), None, "leaf", M((0, 0, 1.25), scale=(0.38, 0.36, 0.32)))
+    m.add(jitter(sphere(10, 6), 0.25, 5), None, "leafdark", M((0.2, 0.1, 1.08), scale=(0.24, 0.22, 0.2)))
+    m.add(jitter(sphere(10, 6), 0.25, 6), None, "leafdark", M((-0.2, -0.08, 1.12), scale=(0.26, 0.24, 0.22)))
+    m.add(jitter(sphere(10, 6), 0.25, 7), None, "leaf", M((0.02, -0.05, 1.5), scale=(0.24, 0.22, 0.2)))
+    return m
+
+
 ARCHER_REST = {"UpperArm.L": (0, -8, 0), "LowerArm.L": (-20, 0, 0), "UpperArm.R": (0, 8, 0), "LowerArm.R": (-20, 0, 0)}
 GOBLIN_REST = {"Spine": (18, 0, 0), "Head": (-18, 0, 0), "UpperArm.L": (0, -15, 0), "UpperArm.R": (0, 15, 0),
                "LowerArm.L": (-30, 0, 0), "LowerArm.R": (-30, 0, 0), "UpperLeg.L": (-15, 0, 0),
@@ -612,7 +667,7 @@ def palette():
     img = bpy.data.images.new("knight_palette", PAL, PAL)
     px = [0.0] * (PAL * PAL * 4)
     for i, (_, c) in enumerate(COLORS):
-        cx, cy = i % 4, i // 4
+        cx, cy = i % COLS, i // COLS
         for y in range(cy * CELL, cy * CELL + CELL):
             for x in range(cx * CELL, cx * CELL + CELL):
                 o = (y * PAL + x) * 4
@@ -644,18 +699,7 @@ def mode(scn, ob, m):
         bpy.ops.object.mode_set(mode=m)
 
 
-def build(scn, name, model, mat):
-    arm = bpy.data.armatures.new(name)
-    arm_ob = bpy.data.objects.new(name, arm)
-    scn.collection.objects.link(arm_ob)
-    mode(scn, arm_ob, "EDIT")
-    for n, h, t, p in model.bones:
-        eb = arm.edit_bones.new(n)
-        eb.head, eb.tail, eb.roll = h, t, 0.0
-        if p:
-            eb.parent = arm.edit_bones[p]
-    mode(scn, arm_ob, "OBJECT")
-
+def make_mesh(scn, name, model, mat):
     verts, faces, cols, vbone = [], [], [], []
     for v, f, b, c, _ in model.parts:
         base = len(verts)
@@ -678,6 +722,22 @@ def build(scn, name, model, mat):
     me.materials.append(mat)
     ob = bpy.data.objects.new(name + "_mesh", me)
     scn.collection.objects.link(ob)
+    return ob, vbone
+
+
+def build(scn, name, model, mat):
+    arm = bpy.data.armatures.new(name)
+    arm_ob = bpy.data.objects.new(name, arm)
+    scn.collection.objects.link(arm_ob)
+    mode(scn, arm_ob, "EDIT")
+    for n, h, t, p in model.bones:
+        eb = arm.edit_bones.new(n)
+        eb.head, eb.tail, eb.roll = h, t, 0.0
+        if p:
+            eb.parent = arm.edit_bones[p]
+    mode(scn, arm_ob, "OBJECT")
+
+    ob, vbone = make_mesh(scn, name, model, mat)
     groups = {}
     for i, b in enumerate(vbone):
         groups.setdefault(b, []).append(i)
@@ -749,6 +809,18 @@ def export(scn, arm_ob, mesh_ob, path):
                                   export_cameras=False, export_lights=False)
 
 
+def export_static(scn, mesh_ob, path):
+    vl = scn.view_layers[0]
+    for o in scn.objects:
+        o.select_set(False, view_layer=vl)
+    mesh_ob.select_set(True, view_layer=vl)
+    vl.objects.active = mesh_ob
+    with bpy.context.temp_override(scene=scn, view_layer=vl, active_object=mesh_ob):
+        bpy.ops.export_scene.gltf(filepath=str(path), export_format="GLB", use_selection=True,
+                                  export_animations=False, export_skins=False, export_yup=True,
+                                  export_cameras=False, export_lights=False)
+
+
 def cell_ref(scn, x):
     me = bpy.data.meshes.new("cell_ref")
     me.from_pydata([(-1, -1, 0), (1, -1, 0), (1, 1, 0), (-1, 1, 0)], [(0, 1), (1, 2), (2, 3), (3, 0)], [])
@@ -795,6 +867,14 @@ def main():
         cell_ref(scn, x)
         report[name] = {"bones": len(model.bones), "verts": len(mesh_ob.data.vertices),
                         "tris": sum(len(p.vertices) - 2 for p in mesh_ob.data.polygons)}
+    for i, (name, model) in enumerate((("prop_crate", crate_model()), ("prop_rock", rock_model()),
+                                       ("prop_tree", tree_model()))):
+        ob, _ = make_mesh(scn, name, model, mat)
+        export_static(scn, ob, ROOT / "assets" / f"{name}.glb")
+        ob.location.x = 12.5 + 2.5 * i
+        ob.scale = (2.0, 2.0, 2.0)
+        cell_ref(scn, ob.location.x)
+        report[name] = {"tris": sum(len(p.vertices) - 2 for p in ob.data.polygons)}
     bpy.ops.wm.save_as_mainfile(filepath=str(ROOT / "art" / "units.blend"))
     return report
 

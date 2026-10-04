@@ -22,6 +22,7 @@
 #include "RenderLab.h"
 #include "SystemsLab.h"
 #include "LevelLab.h"
+#include "ModelLab.h"
 #include "PickLab.h"
 #include "TacticsLab.h"
 #include "UILab.h"
@@ -39,6 +40,7 @@
 #include "Turn.h"
 #include "Unit.h"
 #include "UnitCatalog.h"
+#include "UnitModels.h"
 #include "game/EntityBuilder.h"
 #include "game/DebugPanel.h"
 #include "game/GameState.h"
@@ -183,6 +185,7 @@ std::unique_ptr<Scene> makeStartScene(const std::string& name, game::GameState& 
     if (name == "ailab")      return std::make_unique<AILab>(gs);
     if (name == "uilab")      return std::make_unique<UILab>(gs);
     if (name == "picklab")    return std::make_unique<PickLab>(gs);
+    if (name == "modellab")   return std::make_unique<ModelLab>(gs);
     if (name != "title") aout << "[desktop] unknown --start '" << name << "', using title" << std::endl;
     return std::make_unique<TitleScene>(gs);
 }
@@ -281,6 +284,7 @@ int main(int argc, char** argv) {
     game::Prop::selfTest();
     game::EntityBuilder::selfTest();
     game::LevelSpawner::selfTest();
+    game::UnitModels::selfTest();
     game::EntityRegistry::selfTest();
     game::GameState::selfTest();
     game::DebugPanel::selfTest();

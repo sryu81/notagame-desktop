@@ -21,6 +21,9 @@ public:
         const Mesh*     cube     = nullptr;
         const Model*    cubeModel = nullptr;
         const Material* material = nullptr;
+        const Mesh*     propMesh[3] = {nullptr, nullptr, nullptr};
+        const Model*    propModel[3] = {nullptr, nullptr, nullptr};
+        const Material* propMaterial = nullptr;
     };
 
     static std::unique_ptr<grid::BattleGrid> makeGrid(const level::Level& lvl);

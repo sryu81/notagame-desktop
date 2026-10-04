@@ -22,6 +22,7 @@
 #include "Picker.h"
 #include "Turn.h"
 #include "UnitCatalog.h"
+#include "UnitModels.h"
 
 namespace game { class GameState; class Unit; }
 
@@ -53,14 +54,7 @@ struct Data {
     std::unique_ptr<game::LabAssets> assets;
     const Material* litMat   = nullptr;
     const Material* unlitMat = nullptr;
-    struct Rig {
-        anim::Skeleton skeleton;
-        std::map<std::string, anim::SkeletalClip> clips;
-        asset::Handle mesh = asset::kNull;
-    };
-    std::map<std::string, Rig> rigs;
-    std::shared_ptr<TextureAsset> palette;
-    Material paletteMat;
+    game::UnitModels models;
     asset::Handle terrainMesh = asset::kNull;
     game::UnitCatalog catalog;
 

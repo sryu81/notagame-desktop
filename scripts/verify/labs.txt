@@ -1,48 +1,51 @@
 # Every lab's auto-drive, from the hub (run with --start hub), 1280x720 framebuffer.
-# Hub rows: RENDER 150, ANIM 194, FX 238, CAMERA 282, SYSTEMS 326, UNIT 370, TACTICS 414,
-# LEVEL 457, AI 501, UI 545, PICK 589, BATTLE 633. Re-measure after adding a hub entry.
+# Hub rows: RENDER 147, ANIM 188, FX 229, CAMERA 270, SYSTEMS 311, UNIT 352, TACTICS 393,
+# LEVEL 433, AI 474, UI 515, PICK 556, MODEL 597, BATTLE 638. Re-measure after adding a hub entry.
 # Battle: level select LEVEL 162 (FLAT->HILL), MODE 232 (PLAY->AUTO), START 302; result CONTINUE 498.
-30    tap 640 150
+30    tap 640 147
 330   shot renderlab.png
 335   tap 1146 366
-400   tap 640 194
+400   tap 640 188
 1700  shot animlab.png
 1705  tap 1146 366
-1770  tap 640 238
+1770  tap 640 229
 3690  shot fxlab.png
 3695  tap 1146 412
-3760  tap 640 282
+3760  tap 640 270
 4280  shot cameralab.png
 4285  tap 1146 504
-4350  tap 640 326
+4350  tap 640 311
 4550  shot systemslab.png
 4555  tap 1146 550
 4620  shot result.png
 4625  tap 640 498
-4720  tap 640 370
+4720  tap 640 352
 5020  shot unitlab.png
 5025  tap 1146 136
-5090  tap 640 414
+5090  tap 640 393
 5570  shot tacticslab.png
 5575  tap 1146 366
-5640  tap 640 457
+5640  tap 640 433
 5940  shot levellab.png
 5945  tap 1146 182
-6010  tap 640 501
+6010  tap 640 474
 6610  shot ailab.png
 6615  tap 1146 182
-6680  tap 640 545
+6680  tap 640 515
 7080  shot uilab.png
 7085  tap 1146 213
-7150  tap 640 589
+7150  tap 640 556
 7350  shot picklab.png
 7355  tap 1146 136
-7420  tap 640 633
-7470  tap 640 162
-7490  tap 640 232
-7510  tap 640 302
-7770  shot battle.png
-9170  shot result_battle.png
-9175  tap 640 498
-9240  shot hub.png
-9270  quit
+7420  tap 640 597
+7760  shot modellab.png
+7765  tap 1146 228
+7820  tap 640 638
+7870  tap 640 162
+7890  tap 640 232
+7910  tap 640 302
+8170  shot battle.png
+9570  shot result_battle.png
+9575  tap 640 498
+9640  shot hub.png
+9670  quit

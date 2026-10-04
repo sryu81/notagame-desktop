@@ -5,13 +5,11 @@
 
 #include <GLES3/gl3.h>
 
-#include "ClipEvents.h"
 #include "EntityBuilder.h"
 #include "GameState.h"
 #include "LevelSpawner.h"
 #include "Unit.h"
 #include "UnitDef.h"
-#include "UnitTypes.h"
 
 namespace battle {
 
@@ -20,60 +18,8 @@ namespace {
 const math::Vec3 kLightDir = math::Vec3(0.4f, 0.8f, 0.5f).normalized();
 constexpr float kAmbient  = 0.2f;
 constexpr float kTileLift = 0.08f;
-constexpr float kUnitScale = 0.5f;
 
 const char* kLevelNames[] = {"FLAT", "HILL", "FORT"};
-
-constexpr const char* kDefaultRig = "test_rig.glb";
-
-bool loadRig(Renderer& r, const std::string& file) {
-    if (d().rigs.count(file)) return true;
-    std::vector<uint8_t> bytes;
-    if (!r.platform().readAsset(file, bytes)) return false;
-    gltf::LoadResult glb;
-    if (!gltf::load(bytes.data(), bytes.size(), glb)) return false;
-    Data::Rig& rig = d().rigs[file];
-    rig.skeleton = std::move(glb.skeleton);
-    for (auto& [name, clip] : glb.clips) {
-        game::applyClipEvents(name, clip);
-        rig.clips[name] = std::move(clip);
-    }
-    rig.mesh = d().assets->addMesh(file, std::move(glb.mesh));
-    return true;
-}
-
-const anim::SkeletalClip* clip(const Data::Rig& rig, const char* name) {
-    auto it = rig.clips.find(name);
-    return it == rig.clips.end() ? nullptr : &it->second;
-}
-
-void buildCatalog() {
-    d().catalog.clear();
-    for (const auto& t : game::unitTypes()) {
-        unit::UnitDef u;
-        u.name = t.name;
-        u.faction = t.faction;
-        u.baseStats = t.stats;
-        u.baseColor = t.color;
-        u.baseScale = kUnitScale;
-        u.modelYawDeg = 180.0f;
-        const bool own = t.model && d().rigs.count(t.model);
-        auto it = d().rigs.find(own ? t.model : kDefaultRig);
-        if (it != d().rigs.end()) {
-            const Data::Rig& rig = it->second;
-            u.skeleton = &rig.skeleton;
-            u.mesh = d().assets->mesh(rig.mesh);
-            u.model = d().assets->model(rig.mesh);
-            u.material = d().assets->material("skinned");
-            u.clips = {clip(rig, "Idle"), clip(rig, "Walk"), clip(rig, "Attack"), clip(rig, "Hurt"), clip(rig, "Death")};
-            if (own && d().palette) {
-                u.material = &d().paletteMat;
-                u.baseColor = math::Vec3(1.0f, 1.0f, 1.0f);
-            }
-        }
-        d().catalog.registerDef(t.id, u);
-    }
-}
 
 bool checkSpawn() {
     const auto& recs = d().level.units;
@@ -100,11 +46,7 @@ void createContent(Renderer& r, game::GameState& gs) {
     d().assets = std::make_unique<game::LabAssets>(r.platform());
     d().litMat   = d().assets->material("lit");
     d().unlitMat = d().assets->material("unlit");
-    if (!loadRig(r, kDefaultRig)) aout << "[battle] test_rig.glb missing; cube rigs" << std::endl;
-    for (const auto& t : game::unitTypes())
-        if (t.model && !loadRig(r, t.model)) aout << "[battle] " << t.model << " missing; test_rig" << std::endl;
-    d().palette = TextureAsset::loadAsset(r.platform(), "knight_palette.png");
-    d().paletteMat = {d().assets->material("skinned")->shader, d().palette.get()};
+    d().models.load(r.platform(), *d().assets);
 
     char file[32];
     snprintf(file, sizeof(file), "level_%02d.lvl", d().levelId);
@@ -119,7 +61,7 @@ void createContent(Renderer& r, game::GameState& gs) {
     d().terrainMesh = d().assets->addMesh("terrain", primitives::makeCellTerrain(
         lvl.width, lvl.height, lvl.cellSize, lvl.cellY));
     d().assets->upload();
-    buildCatalog();
+    d().models.buildCatalog(d().catalog, *d().assets);
 
     d().root = std::make_unique<SceneNode>();
     d().grid = game::LevelSpawner::makeGrid(lvl);
@@ -132,7 +74,12 @@ void createContent(Renderer& r, game::GameState& gs) {
     d().registry = std::make_unique<game::EntityRegistry>();
     {
         game::EntityBuilder eb(d().root.get(), d().grid.get());
-        const game::LevelSpawner::Visuals vis{d().assets->mesh("cube"), d().assets->model("cube"), d().litMat};
+        game::LevelSpawner::Visuals vis{d().assets->mesh("cube"), d().assets->model("cube"), d().litMat};
+        for (int i = 0; i < game::UnitModels::kPropTypes; ++i) {
+            vis.propMesh[i] = d().assets->mesh(d().models.propMesh(i));
+            vis.propModel[i] = d().assets->model(d().models.propMesh(i));
+        }
+        vis.propMaterial = d().models.propMaterial();
         d().propCount = game::LevelSpawner::spawnProps(lvl, eb, *d().grid, vis).size();
         game::LevelSpawner::spawnUnits(lvl, d().catalog, eb, vis);
         eb.populate(*d().registry);

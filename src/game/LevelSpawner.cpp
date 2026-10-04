@@ -89,6 +89,12 @@ std::vector<Prop*> LevelSpawner::spawnProps(const level::Level& lvl, EntityBuild
                     math::Mat4::rotation(math::Quat::fromAxisAngle(math::Vec3(0, 1, 0), rec.yaw)) *
                     math::Mat4::scale(math::Vec3(rec.scale)));
         p->setScale(math::Vec3(rec.scale));
+        const int kind = rec.type < 2 ? rec.type : 2;
+        if (v.propMesh[kind] && v.propMaterial) {
+            n->addChild()->addDrawable({v.propMesh[kind], v.propModel[kind], math::Vec3(1.0f, 1.0f, 1.0f), v.propMaterial});
+            out.push_back(p);
+            continue;
+        }
         for (const Box& b : propBoxes(rec.type)) {
             SceneNode* c = n->addChild();
             c->setLocal(math::Mat4::translation(b.pos) * math::Mat4::scale(b.size));
@@ -149,6 +155,15 @@ void LevelSpawner::selfTest() {
     assert(math::approxEqual(props[0]->node()->local().m[12], wp.x) &&
            math::approxEqual(props[0]->node()->local().m[14], wp.z));
     assert(props[0]->node()->children().size() == 1 && props[1]->node()->children().size() == 2);
+
+    const Material mat{};
+    Visuals modeled = vis;
+    modeled.propMesh[2] = &m;
+    modeled.propMaterial = &mat;
+    lvl.props = {tree};
+    const auto treeOnly = spawnProps(lvl, eb, *g, modeled);
+    assert(treeOnly.size() == 1 && treeOnly[0]->node()->children().size() == 1);
+    assert(treeOnly[0]->node()->children()[0]->drawables().front().mesh == &m);
 
     aout << "[level-spawner] self-test PASS" << std::endl;
 }

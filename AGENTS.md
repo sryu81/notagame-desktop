@@ -21,7 +21,7 @@ cmake --build build                   # incremental; new .cpp files picked up by
 ./build/not_a_game --assets ./assets  # asset dir (default <exe dir>/assets symlink)
 scripts/rebuild_run.sh                # rm -rf build, configure, build, launch
 scripts/rebuild_run.sh --asan -- --data ./save   # same in build-asan; args after -- go to game
-./build/not_a_game --start fxlab      # start scene: title hub levels battle autobattle renderlab animlab fxlab cameralab systemslab unitlab tacticslab levellab ailab uilab picklab
+./build/not_a_game --start fxlab      # start scene: title hub levels battle autobattle renderlab animlab fxlab cameralab systemslab unitlab tacticslab levellab ailab uilab picklab modellab
 ./build/not_a_game --script f.txt     # scripted input: "<frame> tap|down|move|up|hover x y", "key code", "shot f.png", "quit"
 scripts/verify/run_labs.sh [out]      # ASan build, every lab auto-drive, fails on red check or sanitizer report
 ```
@@ -59,8 +59,8 @@ tools/gen_checker.py   generates assets/checker.png (RenderLab texture check)
 tools/gen_sfx.py       generates select/move/hit/miss/turn/music2.wav (48 kHz mono)
 tools/gen_music.py     generates the background playlist music_01..03.wav (numpy)
 tools/gen_test_rig.py  generates assets/test_rig.glb (15-joint box humanoid)
-tools/gen_units.py     Blender (headless) → assets/{knight,horse,knight_mounted,archer,goblin,mage}.glb
-                       + knight_palette.png, art/units.blend
+tools/gen_units.py     Blender (headless) → assets/{knight,horse,knight_mounted,archer,goblin,mage}.glb,
+                       prop_{crate,rock,tree}.glb, knight_palette.png, art/units.blend
 art/                   source art, not shipped (robot1.blend, robot1.glb)
 ```
 
@@ -90,7 +90,10 @@ legality, approach, attack in range, termination, determinism incl. a
 live replay; metrics; 5 checks), `UILab` (legal-action menu, unit card,
 turn-order bar, portrait layout; 4 checks), `PickLab` (body over cell,
 cell pick, tolerance, corpse, intent, cycle, drag-no-tap, hover;
-8 checks). Each auto-drives its checklist; game helpers
+8 checks), `ModelLab` (every unit type + crate/rock/tree from
+`game::UnitModels`: own model, five clips, bones <= 48, fits one cell,
+palette texture, props modeled, all clips play; CLIP/TURN controls;
+7 checks). Each auto-drives its checklist; game helpers
 `ClipEvents` (events by clip name) and `FootIKRig` (skinned foot IK).
 Lab helpers: `DebugPanel` (row list), `LabChecklist` (green-on-pass rows),
 `LabAssets` (lit/skinned/unlit shaders + materials, plane/cube meshes).
@@ -222,8 +225,12 @@ Fixes made here that upstream lacks (keep this list current):
   `knight_mounted.glb` for the new CAVALRY type, `archer.glb`, `goblin.glb`,
   `mage.glb`; nullptr → `test_rig.glb`, only SLINGER now).
   Battle loads one rig per glb (`Data::rigs`); palette-textured units use
-  `Data::paletteMat` (skinned shader + `knight_palette.png`) with a white
-  tint. Levels 1–2 swap the ally MAGE for CAVALRY.
+  the palette material (skinned shader + `knight_palette.png`) with a white
+  tint. Levels 1–2 swap the ally MAGE for CAVALRY. Loading lives in
+  `game/UnitModels` (rigs per glb, palette materials, catalog at
+  `kUnitScale` 0.5, prop meshes), shared by battle and ModelLab; the other
+  labs keep test_rig and their own scales. Props: `LevelSpawner::Visuals`
+  takes per-type prop meshes (box fallback when missing).
 - Font: punctuation glyphs (`. : % = < > / ( ) , ? * ' _`) and lowercase →
   uppercase shapes. Regenerate with `python3 tools/gen_font.py > src/engine/FontData.h`
   (`tools/gen_font.py` is copied from upstream and extended).

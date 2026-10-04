@@ -61,6 +61,8 @@ tools/gen_music.py     generates the background playlist music_01..03.wav (numpy
 tools/gen_test_rig.py  generates assets/test_rig.glb (15-joint box humanoid)
 tools/gen_units.py     Blender (headless) → assets/{knight,horse,knight_mounted,archer,goblin,mage}.glb,
                        prop_{crate,rock,tree}.glb, knight_palette.png, art/units.blend
+tools/unitgen/         generator package: geo (tubes, rings, domes, envelope weights), sd (SD
+                       characters, 2.5 heads, ~10k tris), clips, props, palette, blender_io
 art/                   source art, not shipped (robot1.blend, robot1.glb)
 ```
 

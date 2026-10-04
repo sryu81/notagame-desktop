@@ -168,7 +168,7 @@ void ModelLab::applyTurn() {
     const auto yaw = [](float deg) {
         return math::Mat4::rotation(math::Quat::fromAxisAngle(math::Vec3(0, 1, 0), math::radians(deg)));
     };
-    for (game::Unit* u : units_) u->visualNode()->setLocal(yaw(180.0f + turnDeg_));
+    for (game::Unit* u : units_) u->visualNode()->setLocal(yaw(turnDeg_));
     for (game::Prop* p : props_)
         if (!p->node()->children().empty()) p->node()->children()[0]->setLocal(yaw(turnDeg_));
 }

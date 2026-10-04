@@ -1,4 +1,4 @@
-"""Write assets/knight.glb, assets/horse.glb, assets/knight_mounted.glb.
+"""Write assets/{knight,horse,knight_mounted,archer,goblin,mage}.glb.
 
 Low-poly faceted units built from primitives, rigid skinning (one bone per
 part, weight 1.0), one mesh, one primitive, one material (assets/knight_palette.png,
@@ -8,8 +8,8 @@ knight 1.8 tall, horse and mounted knight inside a 1.8 x 1.8 footprint
 Clips Idle/Walk/Attack/Hurt/Death use the test_rig durations so the
 ClipEvents times (Attack hit 0.35 s, Walk feet 0 / 0.5 s) line up.
 
-Run: blender -b --factory-startup -P tools/gen_knight.py
-Clears the startup scene, builds, exports, saves art/knights.blend.
+Run: blender -b --factory-startup -P tools/gen_units.py
+Clears the startup scene, builds, exports, saves art/units.blend.
 Headless only: glTF export from a non-active scene crashes Blender 5.1.
 """
 import math
@@ -36,6 +36,10 @@ COLORS = [
     ("black", (0.04, 0.04, 0.05)),
     ("wood", (0.55, 0.40, 0.22)),
     ("red", (0.62, 0.14, 0.12)),
+    ("skin", (0.86, 0.66, 0.52)),
+    ("goblin", (0.46, 0.62, 0.22)),
+    ("green", (0.20, 0.42, 0.18)),
+    ("purple", (0.42, 0.20, 0.58)),
 ]
 CELL = 16
 PAL = 64
@@ -169,8 +173,7 @@ def fk(model, pose, offset=Matrix()):
     return out
 
 
-def knight_model():
-    k = Model()
+def humanoid(k):
     k.bone("Hips", (0, 0, 0.92), (0, 0, 1.05))
     k.bone("Spine", (0, 0, 1.05), (0, 0, 1.42), "Hips")
     k.bone("Head", (0, 0, 1.42), (0, 0, 1.75), "Spine")
@@ -181,6 +184,11 @@ def knight_model():
         k.bone(f"UpperLeg.{side}", (0.11 * s, 0, 0.9), (0.11 * s, 0, 0.5), "Hips")
         k.bone(f"LowerLeg.{side}", (0.11 * s, 0, 0.5), (0.11 * s, 0.01, 0.1), f"UpperLeg.{side}")
         k.bone(f"Foot.{side}", (0.11 * s, 0.01, 0.1), (0.11 * s, -0.14, 0.03), f"LowerLeg.{side}")
+
+
+def knight_model():
+    k = Model()
+    humanoid(k)
 
     k.add(limb(0.38, 0.26, 0.18, 0.95, 10), "Hips", "steel", M((0, 0, 0.9)))
     k.add(limb(0.40, 0.275, 0.05, 1.0, 10), "Hips", "leather", M((0, 0, 0.99)))
@@ -229,6 +237,163 @@ def knight_model():
     k.add(box(0.34, 0.012, 0.04), "LowerArm.L", "gold", shield @ M((0, -0.018, 0.1)), final=True)
     k.add(sphere(6, 4), "LowerArm.L", "gold", shield @ M((0, -0.025, 0.05), scale=(0.05, 0.025, 0.05)), final=True)
     return k
+
+
+def bow(m, hand, pre):
+    pts = []
+    for i in range(9):
+        z = -0.55 + 1.1 * i / 8
+        pts.append(Vector((0, -0.16 * (1 - (z / 0.55) ** 2), z)))
+    base = Matrix.Translation(hand) @ M(rot=(pre, 0, 0))
+    for a, b in zip(pts, pts[1:]):
+        m.along(base @ a, base @ b, 0.035, 0.045, "Hand.L", "wood", segs=6)
+    m.add(limb(0.05, 0.05, 0.14, 1.0, 6), "Hand.L", "leather", base @ M((0, -0.16, 0)))
+    m.along(base @ pts[0], base @ pts[-1], 0.008, 0.008, "Hand.L", "white")
+
+
+def archer_model():
+    k = Model()
+    humanoid(k)
+    k.add(limb(0.36, 0.25, 0.05, 1.0, 10), "Hips", "leather", M((0, 0, 0.99)))
+    k.add(limb(0.37, 0.27, 0.26, 0.9, 10), "Hips", "green", M((0, 0, 0.86)))
+    k.add(box(0.05, 0.02, 0.05), "Hips", "gold", M((0, -0.13, 0.99)))
+
+    k.add(limb(0.38, 0.24, 0.38, 1.08, 10), "Spine", "green", M((0, 0, 1.22)))
+    k.add(box(0.05, 0.02, 0.52), "Spine", "leather", M((0, -0.125, 1.22), (0, 35, 0)))
+    k.add(limb(0.26, 0.24, 0.08, 0.8, 10), "Spine", "green", M((0, 0, 1.42)))
+    quiver = Matrix.Translation((0.07, 0.17, 1.22)) @ M(rot=(0, -20, 0))
+    k.add(limb(0.1, 0.1, 0.5, 1.0, 8), "Spine", "leather", quiver)
+    for dx in (-0.025, 0.0, 0.025):
+        k.add(box(0.012, 0.04, 0.09), "Spine", "white", quiver @ M((dx, 0, 0.3)))
+
+    k.add(sphere(10, 7), "Head", "skin", M((0, -0.01, 1.58), scale=(0.105, 0.11, 0.13)))
+    k.add(sphere(10, 7), "Head", "green", M((0, 0.03, 1.6), scale=(0.13, 0.13, 0.15)))
+    k.add(prism(0.05, 0.16, segs=6, top=0), "Head", "green", M((0, 0.15, 1.68), (-60, 0, 0)))
+    k.add(box(0.03, 0.03, 0.05), "Head", "skin", M((0, -0.125, 1.56)))
+    for s in (1, -1):
+        k.add(box(0.025, 0.02, 0.02), "Head", "black", M((0.04 * s, -0.112, 1.61)))
+
+    for s, side in ((1, "L"), (-1, "R")):
+        k.add(limb(0.1, 0.1, 0.24), f"UpperArm.{side}", "green", M((0.26 * s, 0, 1.25)))
+        k.add(limb(0.085, 0.09, 0.22, 1.1), f"LowerArm.{side}", "leather", M((0.275 * s, -0.01, 1.0)))
+        k.add(sphere(6, 4), f"Hand.{side}", "skin", M((0.28 * s, -0.03, 0.82), scale=(0.045, 0.05, 0.055)))
+        k.add(limb(0.14, 0.15, 0.42, 1.1), f"UpperLeg.{side}", "wood", M((0.11 * s, 0, 0.71)))
+        k.add(limb(0.11, 0.12, 0.2), f"LowerLeg.{side}", "wood", M((0.11 * s, 0.005, 0.4)))
+        k.add(limb(0.125, 0.14, 0.26, 1.1), f"LowerLeg.{side}", "leather", M((0.11 * s, 0.005, 0.18)))
+        k.add(box(0.12, 0.17, 0.08), f"Foot.{side}", "leather", M((0.11 * s, -0.02, 0.04)))
+        k.add(limb(0.11, 0.08, 0.1, 0.5, 6), f"Foot.{side}", "leather", M((0.11 * s, -0.14, 0.04), (90, 0, 0)))
+    bow(k, (0.28, -0.04, 0.82), 20)
+    return k
+
+
+def goblin_model():
+    k = Model()
+    humanoid(k)
+    k.add(limb(0.34, 0.24, 0.14), "Hips", "leather", M((0, 0, 0.92)))
+    k.add(limb(0.35, 0.25, 0.04), "Hips", "dark", M((0, 0, 0.99)))
+    k.add(box(0.16, 0.02, 0.24, (1.2, 1)), "Hips", "red", M((0, -0.12, 0.8)))
+    k.add(box(0.16, 0.02, 0.24, (1.2, 1)), "Hips", "red", M((0, 0.12, 0.8)))
+
+    k.add(sphere(10, 6), "Spine", "goblin", M((0, -0.01, 1.18), scale=(0.2, 0.16, 0.22)))
+    k.add(box(0.34, 0.04, 0.34), "Spine", "leather", M((0, 0.11, 1.22)))
+    for s in (1, -1):
+        k.add(box(0.1, 0.03, 0.32), "Spine", "leather", M((0.13 * s, -0.12, 1.22)))
+
+    k.add(sphere(12, 8), "Head", "goblin", M((0, 0, 1.62), scale=(0.2, 0.19, 0.18)))
+    k.add(sphere(8, 5), "Head", "goblin", M((0, -0.12, 1.53), scale=(0.12, 0.1, 0.07)))
+    k.add(prism(0.035, 0.12, segs=6, top=0), "Head", "goblin", M((0, -0.22, 1.61), (90, 0, 0)))
+    k.add(box(0.2, 0.04, 0.03), "Head", "dark", M((0, -0.17, 1.69)))
+    for s in (1, -1):
+        k.add(prism(0.06, 0.3, segs=4, top=0), "Head", "goblin", M((0.24 * s, 0.02, 1.68), (0, 75 * s, 0)))
+        k.add(box(0.05, 0.03, 0.04), "Head", "gold", M((0.07 * s, -0.17, 1.64)))
+        k.add(box(0.02, 0.02, 0.025), "Head", "black", M((0.07 * s, -0.187, 1.64)))
+        k.add(box(0.025, 0.02, 0.04), "Head", "white", M((0.04 * s, -0.215, 1.5)))
+
+    for s, side in ((1, "L"), (-1, "R")):
+        k.add(limb(0.08, 0.08, 0.26), f"UpperArm.{side}", "goblin", M((0.26 * s, 0, 1.25)))
+        k.add(limb(0.075, 0.08, 0.24, 1.15), f"LowerArm.{side}", "goblin", M((0.275 * s, -0.01, 1.0)))
+        k.add(sphere(6, 4), f"Hand.{side}", "goblin", M((0.28 * s, -0.03, 0.82), scale=(0.06, 0.06, 0.06)))
+        k.add(limb(0.1, 0.11, 0.4), f"UpperLeg.{side}", "goblin", M((0.11 * s, 0, 0.71)))
+        k.add(limb(0.12, 0.13, 0.05), f"LowerLeg.{side}", "leather", M((0.11 * s, 0.005, 0.46)))
+        k.add(limb(0.085, 0.09, 0.4, 1.1), f"LowerLeg.{side}", "goblin", M((0.11 * s, 0.005, 0.3)))
+        k.add(box(0.12, 0.2, 0.08), f"Foot.{side}", "goblin", M((0.11 * s, -0.03, 0.04)))
+        k.add(limb(0.11, 0.08, 0.1, 0.4, 6), f"Foot.{side}", "goblin", M((0.11 * s, -0.17, 0.04), (90, 0, 0)))
+    k.add(sphere(8, 5), "UpperArm.L", "red", M((0.25, 0, 1.37), scale=(0.11, 0.12, 0.08)))
+
+    club = Matrix.Translation((-0.28, -0.03, 0.82)) @ M(rot=(10, 0, 0))
+    k.add(limb(0.045, 0.045, 0.14, 1.0, 6), "Hand.R", "leather", club @ M(rot=(90, 0, 0)))
+    k.add(limb(0.06, 0.06, 0.55, 1.7), "Hand.R", "wood", club @ M((0, -0.34, 0), (90, 0, 0)))
+    for a in (0, 120, 240):
+        k.add(prism(0.02, 0.08, segs=4, top=0), "Hand.R", "dark",
+              club @ M((0, -0.52, 0)) @ M(rot=(0, a, 0)) @ M((0, 0, 0.07)))
+    return k
+
+
+def mage_model():
+    k = Model()
+    humanoid(k)
+    k.add(limb(0.42, 0.36, 0.62, 0.62, 12), "Hips", "purple", M((0, 0, 0.62)))
+    k.add(limb(0.43, 0.37, 0.04, 1.0, 12), "Hips", "gold", M((0, 0, 0.33)))
+    k.add(limb(0.33, 0.27, 0.05, 1.0, 12), "Hips", "gold", M((0, 0, 0.97)))
+    for s in (1, -1):
+        k.add(box(0.02, 0.02, 0.18), "Hips", "gold", M((0.06 * s, -0.14, 0.86)))
+
+    k.add(limb(0.38, 0.26, 0.4, 1.05, 12), "Spine", "purple", M((0, 0, 1.22)))
+    k.add(box(0.04, 0.02, 0.4), "Spine", "gold", M((0, -0.135, 1.22)))
+
+    k.add(sphere(10, 7), "Head", "skin", M((0, -0.005, 1.57), scale=(0.1, 0.11, 0.12)))
+    k.add(limb(0.17, 0.12, 0.32, 0.0, 8), "Head", "white", M((0, -0.07, 1.4), (180, 0, 0)))
+    k.add(box(0.12, 0.03, 0.03), "Head", "white", M((0, -0.11, 1.52)))
+    k.add(box(0.03, 0.03, 0.05), "Head", "skin", M((0, -0.118, 1.56)))
+    for s in (1, -1):
+        k.add(box(0.025, 0.02, 0.02), "Head", "black", M((0.04 * s, -0.105, 1.6)))
+    k.add(limb(0.42, 0.42, 0.025, 1.0, 16), "Head", "purple", M((0, 0, 1.69)))
+    k.add(limb(0.25, 0.25, 0.04, 1.0, 12), "Head", "gold", M((0, 0, 1.72)))
+    k.add(limb(0.24, 0.24, 0.42, 0.0, 12), "Head", "purple", M((0, 0.03, 1.92), (-10, 0, 0)))
+
+    for s, side in ((1, "L"), (-1, "R")):
+        k.add(limb(0.11, 0.11, 0.26), f"UpperArm.{side}", "purple", M((0.26 * s, 0, 1.25)))
+        k.add(limb(0.14, 0.15, 0.24, 0.6), f"LowerArm.{side}", "purple", M((0.275 * s, -0.01, 1.0)))
+        k.add(sphere(6, 4), f"Hand.{side}", "skin", M((0.28 * s, -0.03, 0.83), scale=(0.045, 0.05, 0.055)))
+        k.add(limb(0.09, 0.1, 0.3), f"LowerLeg.{side}", "dark", M((0.11 * s, 0.005, 0.22)))
+        k.add(box(0.11, 0.17, 0.08), f"Foot.{side}", "leather", M((0.11 * s, -0.02, 0.04)))
+        k.add(limb(0.1, 0.08, 0.1, 0.4, 6), f"Foot.{side}", "leather", M((0.11 * s, -0.14, 0.04), (90, 0, 0)))
+
+    staff = Matrix.Translation((-0.28, -0.03, 0.82)) @ M(rot=(50, 0, 0))
+    k.add(limb(0.04, 0.04, 1.6, 1.0, 8), "Hand.R", "wood", staff @ M((0, 0, 0.12)))
+    k.add(limb(0.055, 0.055, 0.14, 1.0, 6), "Hand.R", "leather", staff)
+    k.add(limb(0.12, 0.12, 0.08, 1.3, 8), "Hand.R", "gold", staff @ M((0, 0, 0.92)))
+    k.add(sphere(10, 7), "Hand.R", "blue", staff @ M((0, 0, 1.03), scale=(0.08, 0.08, 0.08)))
+    return k
+
+
+ARCHER_REST = {"UpperArm.L": (0, -8, 0), "LowerArm.L": (-20, 0, 0), "UpperArm.R": (0, 8, 0), "LowerArm.R": (-20, 0, 0)}
+GOBLIN_REST = {"Spine": (18, 0, 0), "Head": (-18, 0, 0), "UpperArm.L": (0, -15, 0), "UpperArm.R": (0, 15, 0),
+               "LowerArm.L": (-30, 0, 0), "LowerArm.R": (-30, 0, 0), "UpperLeg.L": (-15, 0, 0),
+               "UpperLeg.R": (-15, 0, 0), "LowerLeg.L": (25, 0, 0), "LowerLeg.R": (25, 0, 0),
+               "Foot.L": (-10, 0, 0), "Foot.R": (-10, 0, 0)}
+MAGE_REST = {"UpperArm.L": (0, -10, 0), "LowerArm.L": (-30, 0, 0), "UpperArm.R": (0, 8, 0), "LowerArm.R": (-50, 0, 0)}
+
+
+def archer_clips():
+    c = knight_clips()
+    draw = {"UpperArm.L": (-85, 0, 0), "LowerArm.L": (20, 0, 0), "Hand.L": (65, 0, 0),
+            "UpperArm.R": (-80, 0, 0), "LowerArm.R": (-70, 0, 0), "Spine": (0, 0, -25), "Head": (0, 0, 20)}
+    loose = dict(draw, **{"UpperArm.R": (-75, 0, -10), "LowerArm.R": (-30, 0, 0)})
+    c["Attack"] = (0.6, [(0.0, {}, {}), (0.2, draw, {}), (0.35, loose, {}), (0.6, {}, {})])
+    return c
+
+
+def mage_clips():
+    c = knight_clips()
+    c["Attack"] = (0.6, [
+        (0.0, {}, {}),
+        (0.2, {"UpperArm.R": (-130, 0, 0), "Hand.R": (110, 0, 0), "UpperArm.L": (-60, 0, 0), "Spine": (-8, 0, 0)}, {}),
+        (0.35, {"UpperArm.R": (-60, 0, 0), "LowerArm.R": (20, 0, 0), "Hand.R": (90, 0, 0), "UpperArm.L": (-80, 0, 0),
+                "LowerArm.L": (20, 0, 0), "Spine": (10, 0, 0)}, {}),
+        (0.6, {}, {}),
+    ])
+    return c
 
 
 KNIGHT_REST = {
@@ -614,6 +779,9 @@ def main():
         ("knight", knight, knight_clips(), -2.5),
         ("horse", horse, horse_clips(), 0.0),
         ("knight_mounted", mounted, merge_clips(horse_clips(mounted=True), knight_clips(mounted=True)), 2.5),
+        ("archer", fk(archer_model(), ARCHER_REST), archer_clips(), 5.0),
+        ("goblin", fk(goblin_model(), GOBLIN_REST, Matrix.Scale(0.72, 4)), knight_clips(), 7.5),
+        ("mage", fk(mage_model(), MAGE_REST), mage_clips(), 10.0),
     ]
     report = {}
     for name, model, clips, x in jobs:
@@ -627,7 +795,7 @@ def main():
         cell_ref(scn, x)
         report[name] = {"bones": len(model.bones), "verts": len(mesh_ob.data.vertices),
                         "tris": sum(len(p.vertices) - 2 for p in mesh_ob.data.polygons)}
-    bpy.ops.wm.save_as_mainfile(filepath=str(ROOT / "art" / "knights.blend"))
+    bpy.ops.wm.save_as_mainfile(filepath=str(ROOT / "art" / "units.blend"))
     return report
 
 

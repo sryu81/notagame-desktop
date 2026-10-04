@@ -16,6 +16,7 @@ struct UnitType {
     unit::Stats   stats;
     math::Vec3    color;
     bool          stuns;
+    const char*   model;
 };
 
 const std::vector<UnitType>& unitTypes();

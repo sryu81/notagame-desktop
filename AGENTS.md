@@ -59,6 +59,7 @@ tools/gen_checker.py   generates assets/checker.png (RenderLab texture check)
 tools/gen_sfx.py       generates select/move/hit/miss/turn/music2.wav (48 kHz mono)
 tools/gen_music.py     generates the background playlist music_01..03.wav (numpy)
 tools/gen_test_rig.py  generates assets/test_rig.glb (15-joint box humanoid)
+tools/gen_knight.py    Blender (headless) → assets/knight, horse, knight_mounted .glb + knight_palette.png
 art/                   source art, not shipped (robot1.blend, robot1.glb)
 ```
 
@@ -216,6 +217,11 @@ Fixes made here that upstream lacks (keep this list current):
 - `game/UnitTypes`: single unit stat table (battle, LevelLab, AI roster).
   `ai::planTurn` optional goal cell (reach-cell levels); battles cap at 30
   rounds.
+- Per-type unit models: `UnitType::model` names a glb (`knight.glb`,
+  `knight_mounted.glb` for the new CAVALRY type; nullptr → `test_rig.glb`).
+  Battle loads one rig per glb (`Data::rigs`); palette-textured units use
+  `Data::paletteMat` (skinned shader + `knight_palette.png`) with a white
+  tint. Levels 1–2 swap the ally MAGE for CAVALRY.
 - Font: punctuation glyphs (`. : % = < > / ( ) , ? * ' _`) and lowercase →
   uppercase shapes. Regenerate with `python3 tools/gen_font.py > src/engine/FontData.h`
   (`tools/gen_font.py` is copied from upstream and extended).

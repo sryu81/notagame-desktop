@@ -24,46 +24,55 @@ constexpr float kUnitScale = 0.5f;
 
 const char* kLevelNames[] = {"FLAT", "HILL", "FORT"};
 
-bool loadRig(Renderer& r) {
+constexpr const char* kDefaultRig = "test_rig.glb";
+
+bool loadRig(Renderer& r, const std::string& file) {
+    if (d().rigs.count(file)) return true;
     std::vector<uint8_t> bytes;
-    if (!r.platform().readAsset("test_rig.glb", bytes)) return false;
+    if (!r.platform().readAsset(file, bytes)) return false;
     gltf::LoadResult glb;
     if (!gltf::load(bytes.data(), bytes.size(), glb)) return false;
-    d().skeleton = std::move(glb.skeleton);
+    Data::Rig& rig = d().rigs[file];
+    rig.skeleton = std::move(glb.skeleton);
     for (auto& [name, clip] : glb.clips) {
         game::applyClipEvents(name, clip);
-        d().clips[name] = std::move(clip);
+        rig.clips[name] = std::move(clip);
     }
-    d().rigMesh = d().assets->addMesh("unit_rig", std::move(glb.mesh));
+    rig.mesh = d().assets->addMesh(file, std::move(glb.mesh));
     return true;
 }
 
-const anim::SkeletalClip* clip(const char* name) {
-    auto it = d().clips.find(name);
-    return it == d().clips.end() ? nullptr : &it->second;
+const anim::SkeletalClip* clip(const Data::Rig& rig, const char* name) {
+    auto it = rig.clips.find(name);
+    return it == rig.clips.end() ? nullptr : &it->second;
 }
 
-void buildCatalog(bool rig) {
+void buildCatalog() {
     d().catalog.clear();
-    const unit::ClipSet set{clip("Idle"), clip("Walk"), clip("Attack"), clip("Hurt"), clip("Death")};
-    auto def = [rig, &set](const char* id, const char* name, unit::Faction f, unit::Stats st, math::Vec3 color) {
+    for (const auto& t : game::unitTypes()) {
         unit::UnitDef u;
-        u.name = name;
-        u.faction = f;
-        u.baseStats = st;
-        u.baseColor = color;
+        u.name = t.name;
+        u.faction = t.faction;
+        u.baseStats = t.stats;
+        u.baseColor = t.color;
         u.baseScale = kUnitScale;
         u.modelYawDeg = 180.0f;
-        if (rig) {
-            u.skeleton = &d().skeleton;
-            u.mesh = d().assets->mesh(d().rigMesh);
-            u.model = d().assets->model(d().rigMesh);
+        const bool own = t.model && d().rigs.count(t.model);
+        auto it = d().rigs.find(own ? t.model : kDefaultRig);
+        if (it != d().rigs.end()) {
+            const Data::Rig& rig = it->second;
+            u.skeleton = &rig.skeleton;
+            u.mesh = d().assets->mesh(rig.mesh);
+            u.model = d().assets->model(rig.mesh);
             u.material = d().assets->material("skinned");
-            u.clips = set;
+            u.clips = {clip(rig, "Idle"), clip(rig, "Walk"), clip(rig, "Attack"), clip(rig, "Hurt"), clip(rig, "Death")};
+            if (own && d().palette) {
+                u.material = &d().paletteMat;
+                u.baseColor = math::Vec3(1.0f, 1.0f, 1.0f);
+            }
         }
-        d().catalog.registerDef(id, u);
-    };
-    for (const auto& t : game::unitTypes()) def(t.id, t.name, t.faction, t.stats, t.color);
+        d().catalog.registerDef(t.id, u);
+    }
 }
 
 bool checkSpawn() {
@@ -91,8 +100,11 @@ void createContent(Renderer& r, game::GameState& gs) {
     d().assets = std::make_unique<game::LabAssets>(r.platform());
     d().litMat   = d().assets->material("lit");
     d().unlitMat = d().assets->material("unlit");
-    const bool rig = loadRig(r);
-    if (!rig) aout << "[battle] test_rig.glb missing; cube rigs" << std::endl;
+    if (!loadRig(r, kDefaultRig)) aout << "[battle] test_rig.glb missing; cube rigs" << std::endl;
+    for (const auto& t : game::unitTypes())
+        if (t.model && !loadRig(r, t.model)) aout << "[battle] " << t.model << " missing; test_rig" << std::endl;
+    d().palette = TextureAsset::loadAsset(r.platform(), "knight_palette.png");
+    d().paletteMat = {d().assets->material("skinned")->shader, d().palette.get()};
 
     char file[32];
     snprintf(file, sizeof(file), "level_%02d.lvl", d().levelId);
@@ -107,7 +119,7 @@ void createContent(Renderer& r, game::GameState& gs) {
     d().terrainMesh = d().assets->addMesh("terrain", primitives::makeCellTerrain(
         lvl.width, lvl.height, lvl.cellSize, lvl.cellY));
     d().assets->upload();
-    buildCatalog(rig);
+    buildCatalog();
 
     d().root = std::make_unique<SceneNode>();
     d().grid = game::LevelSpawner::makeGrid(lvl);

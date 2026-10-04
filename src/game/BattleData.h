@@ -53,9 +53,14 @@ struct Data {
     std::unique_ptr<game::LabAssets> assets;
     const Material* litMat   = nullptr;
     const Material* unlitMat = nullptr;
-    anim::Skeleton skeleton;
-    std::map<std::string, anim::SkeletalClip> clips;
-    asset::Handle rigMesh = asset::kNull;
+    struct Rig {
+        anim::Skeleton skeleton;
+        std::map<std::string, anim::SkeletalClip> clips;
+        asset::Handle mesh = asset::kNull;
+    };
+    std::map<std::string, Rig> rigs;
+    std::shared_ptr<TextureAsset> palette;
+    Material paletteMat;
     asset::Handle terrainMesh = asset::kNull;
     game::UnitCatalog catalog;
 

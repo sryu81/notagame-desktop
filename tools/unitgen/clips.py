@@ -165,3 +165,17 @@ def mage_clips():
         (0.6, {}, {}),
     ])
     return c
+
+
+def slinger_clips():
+    c = knight_clips()
+    c["Attack"] = (0.6, [
+        (0.0, {}, {}),
+        (0.12, {"UpperArm.R": (-150, 0, 20), "LowerArm.R": (-20, 0, 0), "Spine": (-6, 0, -15)}, {}),
+        (0.24, {"UpperArm.R": (-170, 0, -25), "LowerArm.R": (-10, 0, 0), "Spine": (-8, 0, -20),
+                "UpperArm.L": (-40, 0, 0)}, {}),
+        (0.35, {"UpperArm.R": (-75, 0, 0), "LowerArm.R": (10, 0, 0), "Spine": (12, 0, 18),
+                "UpperArm.L": (10, 0, 0), "UpperLeg.L": (-15, 0, 0), "LowerLeg.L": (10, 0, 0)}, {}),
+        (0.6, {}, {}),
+    ])
+    return c

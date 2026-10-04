@@ -1,4 +1,4 @@
-"""Write assets/{knight,horse,knight_mounted,archer,goblin,mage}.glb and
+"""Write assets/{knight,horse,knight_mounted,archer,goblin,mage,slinger}.glb and
 static props assets/prop_{crate,rock,tree}.glb (1:1 game scale, no skeleton).
 
 SD (super-deformed, 2.5 heads tall) units from tools/unitgen/sd.py: swept
@@ -25,12 +25,14 @@ from mathutils import Matrix
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from unitgen import blender_io as io  # noqa: E402
-from unitgen.clips import archer_clips, horse_clips, knight_clips, mage_clips, merge_clips  # noqa: E402
+from unitgen.clips import (archer_clips, horse_clips, knight_clips, mage_clips, merge_clips,  # noqa: E402
+                           slinger_clips)
 from unitgen.geo import Model, fk  # noqa: E402
 from unitgen.palette import palette  # noqa: E402
 from unitgen.props import crate_model, rock_model, tree_model  # noqa: E402
 from unitgen.sd import (SD_ARCHER_REST, SD_GOBLIN_REST, SD_KNIGHT_REST, SD_MAGE_REST, SD_RIDER_REST,  # noqa: E402
-                        archer_sd, goblin_sd, horse_sd, knight_sd, mage_sd, scale_model)
+                        SD_SLINGER_REST, archer_sd, goblin_sd, horse_sd, knight_sd, mage_sd, scale_model,
+                        slinger_sd)
 
 ROOT = Path(__file__).resolve().parent.parent
 SCENE = "Units"
@@ -68,6 +70,7 @@ def main():
         ("archer", fk(archer_sd(), SD_ARCHER_REST), archer_clips(), CAP, 5.0),
         ("goblin", scale_model(fk(goblin_sd(), SD_GOBLIN_REST), GOBLIN_SCALE), knight_clips(), CAP, 7.5),
         ("mage", fk(mage_sd(), SD_MAGE_REST), mage_clips(), CAP, 10.0),
+        ("slinger", fk(slinger_sd(), SD_SLINGER_REST), slinger_clips(), CAP, 12.5),
     ]
     report = {}
     for name, model, clips, cap, x in jobs:
@@ -84,7 +87,7 @@ def main():
                                        ("prop_tree", tree_model()))):
         ob = io.make_mesh(scn, name, model, mat)
         io.export_static(scn, ob, ROOT / "assets" / f"{name}.glb")
-        ob.location.x = 12.5 + 2.5 * i
+        ob.location.x = 15.0 + 2.5 * i
         ob.scale = (2.0, 2.0, 2.0)
         io.cell_ref(scn, ob.location.x)
         report[name] = {"tris": io.tri_count(ob)}

@@ -137,6 +137,8 @@ SD_ARCHER_REST = {"UpperArm.L": (0, -10, 0), "LowerArm.L": (-20, 0, 0), "UpperAr
                   "LowerArm.R": (-25, 0, 0)}
 SD_MAGE_REST = {"UpperArm.L": (0, -12, 0), "LowerArm.L": (-35, 0, 0), "UpperArm.R": (0, 10, 0),
                 "LowerArm.R": (-50, 0, 0)}
+SD_SLINGER_REST = {"UpperArm.L": (0, -10, 0), "LowerArm.L": (-30, 0, 0), "UpperArm.R": (0, 10, 0),
+                   "LowerArm.R": (-25, 0, 0)}
 SD_GOBLIN_REST = {"Spine": (14, 0, 0), "Head": (-12, 0, 0), "UpperArm.L": (0, -18, 0), "UpperArm.R": (0, 18, 0),
                   "LowerArm.L": (-30, 0, 0), "LowerArm.R": (-35, 0, 0), "UpperLeg.L": (-12, -6, 0),
                   "UpperLeg.R": (-12, 6, 0), "LowerLeg.L": (22, 0, 0), "LowerLeg.R": (22, 0, 0),
@@ -310,6 +312,41 @@ def goblin_sd():
     for a in (0, 90, 180, 270):
         rigid(k, J, "Hand.R", prism(1.0, 1.0, 5, 0.0), "dark",
               club @ M((0, -0.45, 0)) @ M(rot=(0, a, 0)) @ M((0, 0, 0.07), scale=(0.015, 0.015, 0.05)))
+    return k
+
+
+def slinger_sd():
+    k = Model()
+    sd_humanoid(k)
+    J = joints(k, SD_SLINGER_REST)
+    body(k, J, "leather", "mustard", "bark", "leather", "skin")
+    face(k, J, mouth=False, blush=False)
+    mask = Vector((0, -0.64, -0.77)).normalized()
+    rigid(k, J, "Head", dome(16, 5, 0.72, 0.1), "red",
+          Matrix.Translation(HC) @ Matrix.Diagonal((*(HR * 1.045), 1)) @
+          Vector((0, 0, 1)).rotation_difference(mask).to_matrix().to_4x4())
+    for s in (1, -1):
+        rigid(k, J, "Head", tube([(0.05 * s, 0.33, 1.1), (0.1 * s, 0.42, 1.0), (0.12 * s, 0.44, 0.88)],
+                                 [(0.035, 0.012), (0.03, 0.01), 0.008], 6, 2), "red")
+    rigid(k, J, "Head", sphere(10, 7), "red", M((0, 0.33, 1.11), scale=(0.05, 0.04, 0.045)), level=0)
+    rigid(k, J, "Head", dome(14, 5, -0.1, 0.06), "mustard", M(HC + Vector((0, 0.03, 0.01)), (-24, 0, 0), HR * 1.1))
+    rigid(k, J, "Head", tube([(0, 0.3, 1.42), (0, 0.4, 1.28), (0, 0.44, 1.12)], [0.1, 0.06, 0.015], 10, 2), "mustard")
+    soft_tube(k, J, [("Hips", (0, 0, 0.58)), ("Hips", (0, 0, 0.38))], [(0.17, 0.135), (0.2, 0.16)],
+              ["Hips", "UpperLeg.L", "UpperLeg.R"], "leather", segs=14, samples=2, caps=(False, False))
+    belt(k, J, "bark", buckle="steel")
+    cape(k, J, "mustard", bottom=0.42, span=130.0)
+    rigid(k, J, "Hips", sphere(12, 8), "leather", M((0.17, -0.06, 0.48), scale=(0.07, 0.06, 0.08)))
+    for i, (dx, dz) in enumerate(((-0.02, 0.55), (0.025, 0.56), (0.0, 0.58))):
+        rigid(k, J, "Hips", sphere(8, 6), "stone", M((0.17 + dx, -0.06, dz), scale=(0.025,) * 3), level=0)
+    for s, side in ((1, "L"), (-1, "R")):
+        rigid(k, J, f"LowerArm.{side}", tube([(0.265 * s, -0.01, 0.64), (0.28 * s, -0.02, 0.55)], [0.058, 0.055], 10, 1),
+              "leather")
+    sling = Matrix.Translation((-0.29, -0.03, 0.49)) @ M(rot=(25, 0, 0))
+    for dx in (-0.03, 0.03):
+        rigid(k, J, "Hand.R", tube([(0, 0, 0), (dx, 0, -0.14), (dx * 1.2, 0, -0.26)], [0.006] * 3, 5, 2),
+              "white", sling, level=0)
+    rigid(k, J, "Hand.R", dome(10, 3, -0.6, 0.25), "leather", sling @ M((0, 0, -0.26), (180, 0, 0), (0.05, 0.035, 0.04)))
+    rigid(k, J, "Hand.R", sphere(10, 7), "stone", sling @ M((0, 0, -0.27), scale=(0.032,) * 3), level=0)
     return k
 
 

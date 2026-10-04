@@ -59,7 +59,7 @@ tools/gen_checker.py   generates assets/checker.png (RenderLab texture check)
 tools/gen_sfx.py       generates select/move/hit/miss/turn/music2.wav (48 kHz mono)
 tools/gen_music.py     generates the background playlist music_01..03.wav (numpy)
 tools/gen_test_rig.py  generates assets/test_rig.glb (15-joint box humanoid)
-tools/gen_units.py     Blender (headless) → assets/{knight,horse,knight_mounted,archer,goblin,mage}.glb,
+tools/gen_units.py     Blender (headless) → assets/{knight,horse,knight_mounted,archer,goblin,mage,slinger}.glb,
                        prop_{crate,rock,tree}.glb, knight_palette.png, art/units.blend
 tools/unitgen/         generator package: geo (tubes, rings, domes, envelope weights), sd (SD
                        characters, 2.5 heads, ~10k tris), clips, props, palette, blender_io
@@ -225,7 +225,7 @@ Fixes made here that upstream lacks (keep this list current):
   rounds.
 - Per-type unit models: `UnitType::model` names a glb (`knight.glb`,
   `knight_mounted.glb` for the new CAVALRY type, `archer.glb`, `goblin.glb`,
-  `mage.glb`; nullptr → `test_rig.glb`, only SLINGER now).
+  `mage.glb`, `slinger.glb`; nullptr → `test_rig.glb`, no type uses it now).
   Battle loads one rig per glb (`Data::rigs`); palette-textured units use
   the palette material (skinned shader + `knight_palette.png`) with a white
   tint. Levels 1–2 swap the ally MAGE for CAVALRY. Loading lives in

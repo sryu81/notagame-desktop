@@ -89,6 +89,31 @@ def ico():
     return v, f
 
 
+def sphere(seg=8, rings=5):
+    v = [(0, 0, -1)]
+    for r in range(1, rings):
+        phi = math.pi * r / rings - math.pi / 2
+        for i in range(seg):
+            a = 2 * math.pi * i / seg
+            v.append((math.cos(phi) * math.cos(a), math.cos(phi) * math.sin(a), math.sin(phi)))
+    v.append((0, 0, 1))
+    top = len(v) - 1
+    f = [(0, 1 + (i + 1) % seg, 1 + i) for i in range(seg)]
+    for r in range(rings - 2):
+        b = 1 + r * seg
+        for i in range(seg):
+            j = (i + 1) % seg
+            f.append((b + i, b + j, b + seg + j, b + seg + i))
+    b = 1 + (rings - 2) * seg
+    f += [(b + i, b + (i + 1) % seg, top) for i in range(seg)]
+    return v, f
+
+
+def limb(sx, sy, sz, top=1.0, segs=8, phase=None):
+    v, f = prism(0.5, sz, segs, top, phase)
+    return [(x * sx, y * sy, z) for x, y, z in v], f
+
+
 def slab(pts, t):
     n = len(pts)
     v = [(x, -t / 2, z) for x, z in pts] + [(x, t / 2, z) for x, z in pts]
@@ -110,9 +135,10 @@ class Model:
         m = m or Matrix()
         self.parts.append(([m @ Vector(p) for p in v], f, bone, color, final))
 
-    def along(self, a, b, w, d, bone, color, top=(1.0, 1.0)):
+    def along(self, a, b, w, d, bone, color, top=(1.0, 1.0), segs=0):
         m, length = along(a, b)
-        self.add(box(w, d, length, top), bone, color, m)
+        geo = limb(w, d, length, top[0], segs) if segs else box(w, d, length, top)
+        self.add(geo, bone, color, m)
 
     def merge(self, other):
         self.bones += other.bones
@@ -156,46 +182,52 @@ def knight_model():
         k.bone(f"LowerLeg.{side}", (0.11 * s, 0, 0.5), (0.11 * s, 0.01, 0.1), f"UpperLeg.{side}")
         k.bone(f"Foot.{side}", (0.11 * s, 0.01, 0.1), (0.11 * s, -0.14, 0.03), f"LowerLeg.{side}")
 
-    k.add(box(0.36, 0.24, 0.18, (0.95, 0.95)), "Hips", "steel", M((0, 0, 0.9)))
-    k.add(box(0.38, 0.255, 0.05), "Hips", "leather", M((0, 0, 0.99)))
+    k.add(limb(0.38, 0.26, 0.18, 0.95, 10), "Hips", "steel", M((0, 0, 0.9)))
+    k.add(limb(0.40, 0.275, 0.05, 1.0, 10), "Hips", "leather", M((0, 0, 0.99)))
+    k.add(box(0.06, 0.02, 0.05), "Hips", "gold", M((0, -0.138, 0.99)))
     k.add(box(0.26, 0.03, 0.3, (0.8, 1)), "Hips", "blue", M((0, -0.125, 0.8)))
     k.add(box(0.26, 0.03, 0.3, (0.8, 1)), "Hips", "blue", M((0, 0.125, 0.8)))
 
-    k.add(box(0.40, 0.26, 0.36, (1.12, 1.05)), "Spine", "steel", M((0, 0, 1.22)))
+    k.add(limb(0.42, 0.27, 0.36, 1.1, 10), "Spine", "steel", M((0, 0, 1.22)))
     k.add(box(0.3, 0.02, 0.32, (1.1, 1)), "Spine", "blue", M((0, -0.137, 1.2)))
     k.add(box(0.3, 0.02, 0.32, (1.1, 1)), "Spine", "blue", M((0, 0.137, 1.2)))
     k.add(box(0.06, 0.012, 0.18), "Spine", "gold", M((0, -0.152, 1.21)))
     k.add(box(0.16, 0.012, 0.05), "Spine", "gold", M((0, -0.152, 1.25)))
-    k.add(prism(0.1, 0.07), "Spine", "dark", M((0, 0, 1.43)))
+    k.add(limb(0.22, 0.2, 0.07, 1.0, 12), "Spine", "dark", M((0, 0, 1.43)))
 
-    k.add(prism(0.125, 0.27), "Head", "steel", M((0, 0, 1.585)))
-    k.add(prism(0.125, 0.05, top=0.5), "Head", "steel", M((0, 0, 1.745)))
-    k.add(box(0.17, 0.03, 0.028), "Head", "black", M((0, -0.112, 1.62)))
-    k.add(box(0.028, 0.03, 0.12), "Head", "gold", M((0, -0.118, 1.55)))
-    k.add(prism(0.045, 0.16, segs=6, top=0), "Head", "white", M((0, 0.02, 1.84), (-12, 0, 0)))
+    k.add(limb(0.25, 0.25, 0.27, 1.0, 12), "Head", "steel", M((0, 0, 1.585)))
+    k.add(limb(0.25, 0.25, 0.05, 0.5, 12), "Head", "steel", M((0, 0, 1.745)))
+    k.add(limb(0.265, 0.265, 0.035, 1.0, 12), "Head", "dark", M((0, 0, 1.47)))
+    k.add(box(0.17, 0.03, 0.028), "Head", "black", M((0, -0.118, 1.62)))
+    k.add(box(0.028, 0.03, 0.12), "Head", "gold", M((0, -0.123, 1.55)))
+    k.add(prism(0.045, 0.16, segs=8, top=0), "Head", "white", M((0, 0.02, 1.84), (-12, 0, 0)))
 
     for s, side in ((1, "L"), (-1, "R")):
-        k.add(ico(), f"UpperArm.{side}", "steel", M((0.25 * s, 0, 1.37), scale=(0.12, 0.13, 0.09)))
-        k.add(box(0.1, 0.11, 0.24), f"UpperArm.{side}", "steel", M((0.26 * s, 0, 1.24)))
-        k.add(box(0.09, 0.1, 0.24, (1.12, 1.12)), f"LowerArm.{side}", "steel", M((0.275 * s, -0.01, 1.0)))
+        k.add(sphere(8, 5), f"UpperArm.{side}", "steel", M((0.25 * s, 0, 1.37), scale=(0.12, 0.13, 0.09)))
+        k.add(limb(0.1, 0.11, 0.24), f"UpperArm.{side}", "steel", M((0.26 * s, 0, 1.24)))
+        k.add(sphere(6, 4), f"LowerArm.{side}", "dark", M((0.27 * s, 0.01, 1.12), scale=(0.06, 0.06, 0.06)))
+        k.add(limb(0.09, 0.1, 0.24, 1.12), f"LowerArm.{side}", "steel", M((0.275 * s, -0.01, 1.0)))
         k.add(box(0.09, 0.1, 0.11), f"Hand.{side}", "dark", M((0.28 * s, -0.03, 0.82)))
-        k.add(box(0.15, 0.17, 0.42, (1.1, 1.1)), f"UpperLeg.{side}", "steel", M((0.11 * s, 0, 0.71)))
-        k.add(box(0.1, 0.06, 0.09), f"UpperLeg.{side}", "dark", M((0.11 * s, -0.08, 0.5)))
-        k.add(box(0.12, 0.14, 0.4, (1.12, 1.12)), f"LowerLeg.{side}", "steel", M((0.11 * s, 0.005, 0.3)))
-        k.add(box(0.12, 0.25, 0.09), f"Foot.{side}", "dark", M((0.11 * s, -0.05, 0.045)))
+        k.add(limb(0.15, 0.17, 0.42, 1.1), f"UpperLeg.{side}", "steel", M((0.11 * s, 0, 0.71)))
+        k.add(sphere(6, 4), f"LowerLeg.{side}", "dark", M((0.11 * s, -0.06, 0.5), scale=(0.07, 0.06, 0.07)))
+        k.add(limb(0.12, 0.14, 0.4, 1.12), f"LowerLeg.{side}", "steel", M((0.11 * s, 0.005, 0.3)))
+        k.add(box(0.12, 0.18, 0.09), f"Foot.{side}", "dark", M((0.11 * s, -0.02, 0.045)))
+        k.add(limb(0.11, 0.09, 0.1, 0.5, 6), f"Foot.{side}", "dark", M((0.11 * s, -0.15, 0.04), (90, 0, 0)))
 
     sword = Matrix.Translation((-0.28, -0.03, 0.82)) @ M(rot=(20, 0, 0))
-    k.add(box(0.035, 0.16, 0.035), "Hand.R", "leather", sword)
-    k.add(box(0.05, 0.05, 0.05), "Hand.R", "gold", sword @ M((0, 0.09, 0)))
+    k.add(limb(0.035, 0.035, 0.16, 1.0, 6), "Hand.R", "leather", sword @ M(rot=(90, 0, 0)))
+    k.add(sphere(6, 4), "Hand.R", "gold", sword @ M((0, 0.1, 0), scale=(0.03, 0.03, 0.03)))
     k.add(box(0.03, 0.03, 0.2), "Hand.R", "gold", sword @ M((0, -0.09, 0)))
-    k.add(box(0.075, 0.02, 0.72, (0.25, 1)), "Hand.R", "steel", sword @ M((0, -0.46, 0), (90, 0, 0)))
+    k.add(limb(0.075, 0.02, 0.62, 1.0, 4, 0.0), "Hand.R", "steel", sword @ M((0, -0.41, 0), (90, 0, 0)))
+    k.add(limb(0.075, 0.02, 0.1, 0.0, 4, 0.0), "Hand.R", "steel", sword @ M((0, -0.77, 0), (90, 0, 0)))
 
-    kite = [(-0.19, 0.22), (0.19, 0.22), (0.19, 0.0), (0.0, -0.36), (-0.19, 0.0)]
+    kite = [(-0.19, 0.2), (-0.1, 0.225), (0.0, 0.232), (0.1, 0.225), (0.19, 0.2), (0.19, 0.05),
+            (0.15, -0.12), (0.08, -0.26), (0.0, -0.36), (-0.08, -0.26), (-0.15, -0.12), (-0.19, 0.05)]
     shield = Matrix.Translation((0.33, -0.17, 1.07)) @ M(rot=(0, 0, 40))
     k.add(slab(kite, 0.03), "LowerArm.L", "blue", shield, final=True)
     k.add(box(0.04, 0.012, 0.5), "LowerArm.L", "gold", shield @ M((0, -0.018, -0.04)), final=True)
     k.add(box(0.34, 0.012, 0.04), "LowerArm.L", "gold", shield @ M((0, -0.018, 0.1)), final=True)
-    k.add(prism(0.045, 0.03, top=0.6), "LowerArm.L", "gold", shield @ M((0, -0.03, 0.05), (90, 0, 0)), final=True)
+    k.add(sphere(6, 4), "LowerArm.L", "gold", shield @ M((0, -0.025, 0.05), scale=(0.05, 0.025, 0.05)), final=True)
     return k
 
 
@@ -227,30 +259,39 @@ def horse_model():
         h.bone(f"{n}_Up", (x, y, z), (x, y + back, 0.47), "Body")
         h.bone(f"{n}_Low", (x, y + back, 0.47), (x, y, 0.09), f"{n}_Up")
         h.bone(f"{n}_Hoof", (x, y, 0.09), (x, y - 0.03, 0.0), f"{n}_Low")
-        h.along((x, y, z + 0.08), (x, y + back, 0.45), 0.12, 0.15, f"{n}_Up", "coat", (1.25, 1.2))
-        h.along((x, y + back, 0.49), (x, y, 0.09), 0.075, 0.085, f"{n}_Low", "coat")
-        h.add(box(0.1, 0.11, 0.09, (0.85, 0.85)), f"{n}_Hoof", "hoof", M((x, y - 0.01, 0.045)))
+        h.along((x, y, z + 0.08), (x, y + back, 0.45), 0.12, 0.15, f"{n}_Up", "coat", (1.25, 1.2), segs=8)
+        h.along((x, y + back, 0.49), (x, y, 0.09), 0.075, 0.085, f"{n}_Low", "coat", segs=6)
+        h.add(limb(0.1, 0.11, 0.09, 0.8), f"{n}_Hoof", "hoof", M((x, y - 0.01, 0.045)))
 
-    h.add(prism(1.0, 0.8), "Body", "coat", M((0, 0.0, 1.0), (90, 0, 0), (0.21, 0.25, 1.0)))
-    h.add(ico(), "Body", "coat", M((0, -0.36, 1.03), scale=(0.2, 0.18, 0.24)))
-    h.add(ico(), "Body", "coat", M((0, 0.36, 1.05), scale=(0.21, 0.2, 0.24)))
+    h.add(sphere(10, 6), "Body", "coat", M((0, 0.0, 1.0), scale=(0.22, 0.44, 0.26)))
+    h.add(sphere(8, 5), "Body", "coat", M((0, -0.34, 1.03), scale=(0.2, 0.18, 0.24)))
+    h.add(sphere(8, 5), "Body", "coat", M((0, 0.34, 1.05), scale=(0.21, 0.2, 0.24)))
     h.add(box(0.47, 0.44, 0.2), "Body", "blue", M((0, 0.02, 1.16)))
     h.add(box(0.48, 0.45, 0.03), "Body", "gold", M((0, 0.02, 1.065)))
     h.add(box(0.28, 0.32, 0.05), "Body", "leather", M((0, 0.02, 1.28)))
-    h.add(box(0.26, 0.05, 0.09), "Body", "leather", M((0, 0.17, 1.32)))
-    h.add(box(0.16, 0.05, 0.09), "Body", "leather", M((0, -0.13, 1.32)))
+    h.add(limb(0.26, 0.06, 0.09, 0.9), "Body", "leather", M((0, 0.17, 1.32)))
+    h.add(limb(0.16, 0.06, 0.09, 0.8), "Body", "leather", M((0, -0.13, 1.32)))
     for s in (1, -1):
         h.add(box(0.012, 0.025, 0.3), "Body", "leather", M((0.245 * s, 0.0, 1.1)))
         h.add(box(0.05, 0.08, 0.02), "Body", "dark", M((0.25 * s, 0.0, 0.94)))
+        h.along((0.07 * s, -0.84, 1.3), (0.06 * s, -0.13, 1.33), 0.012, 0.012, "Body", "leather")
 
-    h.along((0, -0.33, 1.08), (0, -0.56, 1.48), 0.15, 0.22, "Neck", "coat", (0.85, 0.75))
-    h.along((0, -0.3, 1.22), (0, -0.5, 1.56), 0.05, 0.07, "Neck", "mane")
-    h.along((0, -0.53, 1.5), (0, -0.88, 1.24), 0.15, 0.18, "HorseHead", "coat", (0.75, 0.8))
-    h.along((0, -0.53, 1.5), (0, -0.88, 1.24), 0.155, 0.04, "HorseHead", "leather", (0.78, 1))
+    h.along((0, -0.33, 1.08), (0, -0.56, 1.48), 0.15, 0.22, "Neck", "coat", (0.85, 0.75), segs=8)
+    for i in range(3):
+        t = i / 3
+        a = (0, -0.30 - 0.2 * t, 1.22 + 0.34 * t)
+        b = (0, -0.30 - 0.2 * (t + 0.36), 1.22 + 0.34 * (t + 0.36))
+        h.along(a, b, 0.05, 0.08, "Neck", "mane", (0.7, 1.0))
+    h.along((0, -0.53, 1.5), (0, -0.84, 1.27), 0.15, 0.18, "HorseHead", "coat", (0.78, 0.8), segs=8)
+    h.add(sphere(8, 5), "HorseHead", "coat", M((0, -0.86, 1.25), (-38, 0, 0), (0.06, 0.065, 0.075)))
+    h.along((0, -0.53, 1.5), (0, -0.84, 1.27), 0.155, 0.04, "HorseHead", "leather", (0.78, 1))
+    h.add(limb(0.135, 0.15, 0.03, 1.0, 8), "HorseHead", "leather", M((0, -0.8, 1.28), (-38, 0, 0)))
+    h.add(box(0.05, 0.04, 0.08), "HorseHead", "mane", M((0, -0.55, 1.57), (-30, 0, 0)))
     for s in (1, -1):
-        h.add(prism(0.03, 0.1, segs=4, top=0), "HorseHead", "coat", M((0.045 * s, -0.55, 1.6), (-15, 0, 0)))
+        h.add(prism(0.03, 0.1, segs=6, top=0), "HorseHead", "coat", M((0.045 * s, -0.55, 1.6), (-15, 0, 0)))
         h.add(box(0.02, 0.04, 0.03), "HorseHead", "black", M((0.072 * s, -0.66, 1.42)))
-    h.along((0, 0.45, 1.15), (0, 0.62, 0.7), 0.06, 0.08, "Tail", "mane", (1.6, 1.4))
+    h.along((0, 0.43, 1.17), (0, 0.5, 1.02), 0.09, 0.1, "Tail", "mane", (1.0, 1.0), segs=6)
+    h.along((0, 0.48, 1.06), (0, 0.62, 0.7), 0.09, 0.1, "Tail", "mane", (1.7, 1.5), segs=6)
     return h
 
 

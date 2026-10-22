@@ -55,13 +55,14 @@ Shader *Shader::loadShader(
             const GLint boneMat    = glGetUniformLocation(program, binding.boneMatricesUniform);
             const GLint shadowMap  = glGetUniformLocation(program, binding.shadowMapUniform);
             const GLint lightVP    = glGetUniformLocation(program, binding.lightVPUniform);
+            const GLint uvRect     = glGetUniformLocation(program, binding.uvRectUniform);
 
             if (requireModelAndColor && (model == -1 || color == -1)) {
                 aout << "Shader missing required uniforms (uModel or uColor)" << std::endl;
                 glDeleteProgram(program);
             } else {
                 shader = new Shader(program, model, color, texture, hasTexture, boneMat,
-                                    shadowMap, lightVP);
+                                    shadowMap, lightVP, uvRect);
             }
         }
     }
@@ -142,6 +143,10 @@ void Shader::setLightVP(const float *m) const {
 
 void Shader::setShadowMap(GLint unit) const {
     if (shadowMap_ != -1) glUniform1i(shadowMap_, unit);
+}
+
+void Shader::setUVRect(float u0, float v0, float u1, float v1) const {
+    if (uvRect_ != -1) glUniform4f(uvRect_, u0, v0, u1, v1);
 }
 
 void Shader::setFloat(const char *name, float value) const {

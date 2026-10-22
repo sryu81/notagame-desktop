@@ -9,7 +9,7 @@
 #include "stb_image.h"
 
 std::shared_ptr<TextureAsset>
-TextureAsset::loadAsset(const Platform &platform, const std::string &assetPath) {
+TextureAsset::loadAsset(const Platform &platform, const std::string &assetPath, bool nearest) {
     std::vector<uint8_t> bytes;
     if (!platform.readAsset(assetPath, bytes)) {
         aout << "[texture] failed to open " << assetPath << std::endl;
@@ -30,16 +30,16 @@ TextureAsset::loadAsset(const Platform &platform, const std::string &assetPath) 
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, nearest ? GL_NEAREST : GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, nearest ? GL_NEAREST : GL_LINEAR);
 
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0,
                  GL_RGBA, GL_UNSIGNED_BYTE, pixels);
-    glGenerateMipmap(GL_TEXTURE_2D);
+    if (!nearest) glGenerateMipmap(GL_TEXTURE_2D);
 
     stbi_image_free(pixels);
-    return std::shared_ptr<TextureAsset>(new TextureAsset(textureId));
+    return std::shared_ptr<TextureAsset>(new TextureAsset(textureId, width, height, nearest));
 }
 
 TextureAsset::~TextureAsset() {

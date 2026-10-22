@@ -23,6 +23,8 @@ public:
         const Material *material = nullptr;
         bool depthWrite = true;
         bool castShadow = true;
+        math::Vec4 uvRect{0.0f, 0.0f, 1.0f, 1.0f};
+        bool alphaCutout = false;
     };
 
     SceneNode() = default;

@@ -1,51 +1,54 @@
 # Every lab's auto-drive, from the hub (run with --start hub), 1280x720 framebuffer.
-# Hub rows: RENDER 147, ANIM 188, FX 229, CAMERA 270, SYSTEMS 311, UNIT 352, TACTICS 393,
-# LEVEL 433, AI 474, UI 515, PICK 556, MODEL 597, BATTLE 638. Re-measure after adding a hub entry.
+# Hub rows: RENDER 146, ANIM 184, FX 222, CAMERA 260, SYSTEMS 298, UNIT 336, TACTICS 375,
+# LEVEL 413, AI 451, UI 489, PICK 527, MODEL 565, SPRITE 604, BATTLE 642. Re-measure after adding a hub entry.
 # Battle: level select LEVEL 162 (FLAT->HILL), MODE 232 (PLAY->AUTO), START 302; result CONTINUE 498.
-30    tap 640 147
+30    tap 640 146
 330   shot renderlab.png
 335   tap 1146 366
-400   tap 640 188
+400   tap 640 184
 1700  shot animlab.png
 1705  tap 1146 366
-1770  tap 640 229
+1770  tap 640 222
 3690  shot fxlab.png
 3695  tap 1146 412
-3760  tap 640 270
+3760  tap 640 260
 4280  shot cameralab.png
 4285  tap 1146 504
-4350  tap 640 311
+4350  tap 640 298
 4550  shot systemslab.png
 4555  tap 1146 550
 4620  shot result.png
 4625  tap 640 498
-4720  tap 640 352
+4720  tap 640 336
 5020  shot unitlab.png
 5025  tap 1146 136
-5090  tap 640 393
+5090  tap 640 375
 5570  shot tacticslab.png
 5575  tap 1146 366
-5640  tap 640 433
+5640  tap 640 413
 5940  shot levellab.png
 5945  tap 1146 182
-6010  tap 640 474
+6010  tap 640 451
 6610  shot ailab.png
 6615  tap 1146 182
-6680  tap 640 515
+6680  tap 640 489
 7080  shot uilab.png
 7085  tap 1146 213
-7150  tap 640 556
+7150  tap 640 527
 7350  shot picklab.png
 7355  tap 1146 136
-7420  tap 640 597
+7420  tap 640 565
 7760  shot modellab.png
 7765  tap 1146 228
-7820  tap 640 638
-7870  tap 640 162
-7890  tap 640 232
-7910  tap 640 302
-8170  shot battle.png
-9570  shot result_battle.png
-9575  tap 640 498
-9640  shot hub.png
-9670  quit
+7820  tap 640 604
+8240  shot spritelab.png
+8245  tap 1146 274
+8300  tap 640 642
+8350  tap 640 162
+8370  tap 640 232
+8390  tap 640 302
+8650  shot battle.png
+10050 shot result_battle.png
+10055 tap 640 498
+10120 shot hub.png
+10150 quit

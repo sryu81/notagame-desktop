@@ -38,6 +38,7 @@
 #include "Shader.h"
 #include "Sky.h"
 #include "Spawn.h"
+#include "Sprite.h"
 #include "Stars.h"
 #include "TextureAsset.h"
 #include "TileGrid.h"

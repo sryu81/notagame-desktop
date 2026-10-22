@@ -25,6 +25,8 @@ LabAssets::LabAssets(const Platform& platform) {
         "lit", loadFrameShader(platform, "shaders/lit.vert", "shaders/lit.frag"));
     const asset::Handle hSkinned = registry_.addShader(
         "skinned", loadFrameShader(platform, "shaders/skinned.vert", "shaders/lit.frag"));
+    registry_.addShader(
+        "sprite", loadFrameShader(platform, "shaders/sprite.vert", "shaders/sprite.frag"));
     const asset::Handle hUnlit = registry_.addShader(
         "unlit", loadFrameShader(platform, "shaders/unlit.vert", "shaders/unlit.frag"));
     registry_.addMaterial("lit",     {registry_.shader(hLit),     nullptr});
@@ -33,6 +35,7 @@ LabAssets::LabAssets(const Platform& platform) {
 
     registry_.addMesh("plane", primitives::makePlane(1.0f));
     registry_.addMesh("cube", primitives::makeCube(1.0f));
+    registry_.addMesh("sprite_quad", sprite::makeQuad());
 }
 
 LabAssets::~LabAssets() {

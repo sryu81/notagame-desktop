@@ -96,7 +96,7 @@ public:
     void setShadowExtent(float halfSize) { shadowHalfSize_ = halfSize; }
     float shadowExtent() const { return shadowHalfSize_; }
     const math::Mat4& lightViewProjection() const { return lightVP_; }
-    struct ShadowStats { int draws = 0; int skinnedDraws = 0; };
+    struct ShadowStats { int draws = 0; int skinnedDraws = 0; int cutoutDraws = 0; };
     const ShadowStats& shadowStats() const { return shadowStats_; }
 
     const Platform& platform() const { return platform_; }
@@ -159,6 +159,7 @@ private:
     static constexpr int kShadowMapSize = 1024;
     std::unique_ptr<Shader> shadowShader_;
     std::unique_ptr<Shader> shadowSkinnedShader_;
+    std::unique_ptr<Shader> shadowCutoutShader_;
     bool shadowMapCleared_ = false;
     float shadowHalfSize_ = 12.0f;
     ShadowStats shadowStats_;

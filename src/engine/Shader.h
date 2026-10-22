@@ -14,6 +14,7 @@ struct ShaderBinding {
     const char *boneMatricesUniform   = "uBoneMatrices";
     const char *shadowMapUniform      = "uShadowMap";
     const char *lightVPUniform        = "uLightVP";
+    const char *uvRectUniform         = "uUVRect";
 };
 
 class Shader {
@@ -54,6 +55,8 @@ public:
     void setBoneMatrices(const float *m, int count) const;
     void setLightVP(const float *m) const;
     void setShadowMap(GLint unit) const;
+    void setUVRect(float u0, float v0, float u1, float v1) const;
+    bool hasUVRect() const { return uvRect_ != -1; }
 
     void setFloat(const char *name, float value) const;
     void setFloat3(const char *name, float x, float y, float z) const;
@@ -69,7 +72,7 @@ private:
 
     constexpr Shader(GLuint program, GLint model, GLint color, GLint texture,
                      GLint hasTexture, GLint boneMatrices,
-                     GLint shadowMap, GLint lightVP)
+                     GLint shadowMap, GLint lightVP, GLint uvRect)
             : program_(program),
               modelMatrix_(model),
               color_(color),
@@ -77,7 +80,8 @@ private:
               hasTexture_(hasTexture),
               boneMatrices_(boneMatrices),
               shadowMap_(shadowMap),
-              lightVP_(lightVP) {}
+              lightVP_(lightVP),
+              uvRect_(uvRect) {}
 
     GLuint program_;
     GLint modelMatrix_;
@@ -87,6 +91,7 @@ private:
     GLint boneMatrices_;
     GLint shadowMap_;
     GLint lightVP_;
+    GLint uvRect_;
 };
 
 namespace shader {

@@ -89,6 +89,7 @@ Renderer::~Renderer() {
         if (particleIbo_) { glDeleteBuffers(1, &particleIbo_); particleIbo_ = 0; }
         shadowShader_.reset();
         shadowSkinnedShader_.reset();
+        shadowCutoutShader_.reset();
         if (shadowDepthTex_) { glDeleteTextures(1, &shadowDepthTex_); shadowDepthTex_ = 0; }
         if (shadowFbo_) { glDeleteFramebuffers(1, &shadowFbo_); shadowFbo_ = 0; }
         camera_.reset();
@@ -319,6 +320,7 @@ void Renderer::renderNode(const SceneNode* node) {
             sh->setHasTexture(false);
         }
         sh->setModelMatrix(world.m);
+        sh->setUVRect(d.uvRect.x, d.uvRect.y, d.uvRect.z, d.uvRect.w);
         sh->setColor(d.color.x, d.color.y, d.color.z, 1.0f);
         glDepthMask(d.depthWrite ? GL_TRUE : GL_FALSE);
         d.model->draw();
@@ -523,6 +525,12 @@ void Renderer::initShadowMap() {
         shadowSkinnedShader_.reset(Shader::loadShader(vs, fs, {}, false));
     }
     assert(shadowSkinnedShader_);
+    {
+        std::string vs = shader::loadSource(platform_, "shaders/shadow_cutout.vert");
+        std::string fs = shader::loadSource(platform_, "shaders/shadow_cutout.frag");
+        shadowCutoutShader_.reset(Shader::loadShader(vs, fs, {}, false));
+    }
+    assert(shadowCutoutShader_);
 }
 
 math::Mat4 Renderer::computeLightVP() const {
@@ -544,10 +552,12 @@ math::Mat4 Renderer::computeLightVP() const {
 
 void Renderer::renderNodeShadow(const SceneNode* node) {
     const math::Mat4 world = node->world();
-    const Shader* sh = node->hasBoneMatrices() ? shadowSkinnedShader_.get() : shadowShader_.get();
     for (const auto& d : node->drawables()) {
         if (!d.model || !d.material || !d.castShadow) continue;
         if (d.material->shader == nullptr) continue;
+        const bool cutout = d.alphaCutout && d.material->texture;
+        const Shader* sh = cutout ? shadowCutoutShader_.get()
+                         : node->hasBoneMatrices() ? shadowSkinnedShader_.get() : shadowShader_.get();
         if (sh != currentShader_) {
             sh->activate();
             sh->setLightVP(lightVP_.m);
@@ -556,6 +566,13 @@ void Renderer::renderNodeShadow(const SceneNode* node) {
         if (node->hasBoneMatrices()) {
             const auto& bm = node->boneMatrices();
             sh->setBoneMatrices(&bm[0].m[0], static_cast<int>(bm.size()));
+        }
+        if (cutout) {
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, d.material->texture->getTextureID());
+            sh->setTexture(0);
+            sh->setUVRect(d.uvRect.x, d.uvRect.y, d.uvRect.z, d.uvRect.w);
+            ++shadowStats_.cutoutDraws;
         }
         sh->setModelMatrix(world.m);
         d.model->draw();

@@ -24,6 +24,7 @@
 #include "LevelLab.h"
 #include "ModelLab.h"
 #include "PickLab.h"
+#include "SpriteLab.h"
 #include "TacticsLab.h"
 #include "UILab.h"
 #include "UnitLab.h"
@@ -186,6 +187,7 @@ std::unique_ptr<Scene> makeStartScene(const std::string& name, game::GameState& 
     if (name == "uilab")      return std::make_unique<UILab>(gs);
     if (name == "picklab")    return std::make_unique<PickLab>(gs);
     if (name == "modellab")   return std::make_unique<ModelLab>(gs);
+    if (name == "spritelab")  return std::make_unique<SpriteLab>(gs);
     if (name != "title") aout << "[desktop] unknown --start '" << name << "', using title" << std::endl;
     return std::make_unique<TitleScene>(gs);
 }
@@ -247,6 +249,7 @@ int main(int argc, char** argv) {
     SceneNode::selfTest();
     meshdata::selfTest();
     anim::selfTest();
+    sprite::selfTest();
     grid::BattleGrid::selfTest();
     path::selfTest();
     rules::selfTest();

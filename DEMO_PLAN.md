@@ -222,7 +222,7 @@ top face of a cube textured with `assets/checker.png`
 (`tools/gen_checker.py`) and needs ≥ 4 light/dark alternations
 (`android_robot.png` is flat green with an alpha mask, so it can't show
 sampling). `test_rig.glb` not used yet (P2.5). Heavy mesh: opt-in button;
-needs `robot1.glb` copied from `art/` into `assets/`.
+needs `robot1.glb` copied from `../notagame-art/legacy/` into `assets/`.
 
 Scene: plane + textured cube + UV sphere + `unit_v2` skinned + `test_rig`
 (from P2.5 asset, optional) under a rotating sun.

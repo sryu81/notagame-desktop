@@ -4,6 +4,10 @@ Desktop (Linux) fork of the Android SRPG engine testbed at `/home/soo/notagame`.
 Purpose: iterate on the engine and demo faster than on the emulator (60 FPS
 vs ~10), then **merge the upgraded engine back** into the Android repo.
 
+Models: source art and the unit generator (`gen_units.py`, `unitgen/`, `.blend`
+files) live in **`../notagame-art`** (own git repo, see its README); it exports
+`.glb`/palette into `assets/` here.
+
 Active work: **[DEMO_PLAN.md](DEMO_PLAN.md)** — hub + lab scenes, bug fixes B1–B8.
 Background docs (SLICES, VERIFICATION, TUNABLES, HISTORY) live in the Android repo.
 
@@ -59,11 +63,6 @@ tools/gen_checker.py   generates assets/checker.png (RenderLab texture check)
 tools/gen_sfx.py       generates select/move/hit/miss/turn/music2.wav (48 kHz mono)
 tools/gen_music.py     generates the background playlist music_01..03.wav (numpy)
 tools/gen_test_rig.py  generates assets/test_rig.glb (15-joint box humanoid)
-tools/gen_units.py     Blender (headless) → assets/{knight,horse,knight_mounted,archer,goblin,mage,slinger}.glb,
-                       prop_{crate,rock,tree}.glb, knight_palette.png, art/units.blend
-tools/unitgen/         generator package: geo (tubes, rings, domes, envelope weights), sd (SD
-                       characters, 2.5 heads, ~10k tris), clips, props, palette, blender_io
-art/                   source art, not shipped (robot1.blend, robot1.glb)
 ```
 
 Game scenes: `TitleScene` → `HubScene` (lab list + BATTLE) →

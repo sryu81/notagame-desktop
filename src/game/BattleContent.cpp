@@ -47,6 +47,7 @@ void createContent(Renderer& r, game::GameState& gs) {
     d().litMat   = d().assets->material("lit");
     d().unlitMat = d().assets->material("unlit");
     d().models.load(r.platform(), *d().assets);
+    d().sprites.load(r.platform(), *d().assets);
 
     char file[32];
     snprintf(file, sizeof(file), "level_%02d.lvl", d().levelId);
@@ -61,6 +62,7 @@ void createContent(Renderer& r, game::GameState& gs) {
     d().terrainMesh = d().assets->addMesh("terrain", primitives::makeCellTerrain(
         lvl.width, lvl.height, lvl.cellSize, lvl.cellY));
     d().assets->upload();
+    d().sprites.createMaterials(*d().assets);
     d().models.buildCatalog(d().catalog, *d().assets);
 
     d().root = std::make_unique<SceneNode>();
@@ -85,6 +87,7 @@ void createContent(Renderer& r, game::GameState& gs) {
         eb.populate(*d().registry);
     }
     d().units = d().registry->allUnits();
+    d().sprites.attach(d().root.get(), d().models, d().units, *d().assets);
     d().names.clear();
     for (const auto& rec : lvl.units) {
         std::string n = rec.catalogId;

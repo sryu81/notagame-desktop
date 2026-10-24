@@ -23,6 +23,7 @@
 #include "Turn.h"
 #include "UnitCatalog.h"
 #include "UnitModels.h"
+#include "UnitSprites.h"
 
 namespace game { class GameState; class Unit; }
 
@@ -55,6 +56,8 @@ struct Data {
     const Material* litMat   = nullptr;
     const Material* unlitMat = nullptr;
     game::UnitModels models;
+    game::UnitSprites sprites;
+    bool spritesOk = true;
     asset::Handle terrainMesh = asset::kNull;
     game::UnitCatalog catalog;
 

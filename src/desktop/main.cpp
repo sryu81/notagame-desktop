@@ -25,6 +25,7 @@
 #include "ModelLab.h"
 #include "PickLab.h"
 #include "SpriteLab.h"
+#include "UnitSprites.h"
 #include "TacticsLab.h"
 #include "UILab.h"
 #include "UnitLab.h"
@@ -294,6 +295,7 @@ int main(int argc, char** argv) {
     game::LabChecklist::selfTest();
     game::clipEventsSelfTest();
     game::FootIKRig::selfTest();
+    game::UnitSprites::selfTest();
     desktop::ScriptRunner::selfTest();
     desktop::pngSelfTest();
 

@@ -26,6 +26,7 @@ const char* kLegal     = "ATTACKS LEGAL";
 const char* kStunSkips = "STUN SKIPS";
 const char* kResult    = "RESULT REACHED";
 const char* kRoster    = "ROSTER SYNCED BY ID";
+const char* kSprites   = "SPRITE UNITS";
 
 int indexOf(const game::Unit* u) {
     for (size_t i = 0; i < d().units.size(); ++i) if (d().units[i] == u) return static_cast<int>(i);
@@ -140,6 +141,13 @@ void finishChecks(game::GameState& gs) {
         synced = s.unitId != 0 && u && u->hp() == s.hp;
     }
     c.check(kRoster, synced);
+    constexpr int kActed = (1 << 1) | (1 << 2) | (1 << 3);
+    const bool sprites = d().spritesOk && d().sprites.allBound(d().units) &&
+                         (d().sprites.seenClips() & kActed) == kActed;
+    c.check(kSprites, sprites);
+    if (!sprites)
+        aout << "[battle] sprites ok=" << d().spritesOk << " bound=" << d().sprites.boundCount()
+             << " clips=" << d().sprites.seenClips() << std::endl;
     aout << "[battle] " << flow::toString(d().outcome) << " round " << d().turns->round() << " moves "
          << d().tally.moves << " attacks " << d().tally.attacks << " skips " << d().tally.skips << std::endl;
     aout << "[battle] auto-drive done: " << c.passedCount() << "/" << c.size() << " checks green" << std::endl;
@@ -148,7 +156,7 @@ void finishChecks(game::GameState& gs) {
 }
 
 void addChecklistRows(game::LabChecklist& c) {
-    for (const char* row : {kSpawned, kReach, kLegal, kStunSkips, kResult, kRoster}) c.add(row);
+    for (const char* row : {kSpawned, kReach, kLegal, kStunSkips, kResult, kRoster, kSprites}) c.add(row);
 }
 
 bool playerControls(const game::Unit* u) {

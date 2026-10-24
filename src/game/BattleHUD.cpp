@@ -61,6 +61,8 @@ void buildHUD(Renderer& r, game::GameState& gs) {
     });
     d().hud->addRow("AUTO", []() { return std::string(d().autoBattle ? "ON" : "OFF"); },
                     []() { d().autoBattle = !d().autoBattle; });
+    d().hud->addRow("VIEW", []() { return std::string(d().sprites.enabled() ? "SPRITE" : "3D"); },
+                    []() { d().sprites.setEnabled(!d().sprites.enabled()); });
     d().hud->addAction("SAVE", []() { saveGame(); });
     d().hud->addAction("LOAD", []() { loadGame(); });
     d().hud->addAction("BACK", [rptr, gsp]() { rptr->sceneManager().replace(std::make_unique<HubScene>(*gsp)); });

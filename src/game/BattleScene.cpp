@@ -129,6 +129,8 @@ void BattleScene::update(float dt, Renderer& r) {
     } else {
         d().hoverRing->setLocal(math::Mat4::scale(math::Vec3(0.0f, 1.0f, 0.0f)));
     }
+    d().sprites.update(r.camera());
+    if (d().sprites.enabled()) d().spritesOk = d().spritesOk && d().sprites.inSync();
     battle::updateHUD(dt, r);
 }
 

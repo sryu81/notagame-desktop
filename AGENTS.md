@@ -251,6 +251,14 @@ Fixes made here that upstream lacks (keep this list current):
   `ShadowStats::cutoutDraws`. `TextureAsset::loadAsset(..., nearest)` +
   `width/height/nearest`. Sheets for units come from
   `../notagame-art/render_sprites.py`.
+- Battle draws units as sprites by default (`game/UnitSprites`): one
+  `<model>_sprite` sheet per unit glb, a camera-facing card per unit; the
+  skinned model stays in the graph (drawables stashed) and keeps driving
+  actions, events and timing; the card mirrors its clip (Idle/Walk/Attack/
+  Hurt/Death), time → frame, and facing from the unit node's yaw. HUD
+  `VIEW` toggles SPRITE/3D; battle checklist row `SPRITE UNITS`. Sprite
+  materials are owned by `UnitSprites` (adding registry materials after
+  `material()` lookups reallocates and dangles those pointers).
 
 Easiest merge path: in notagame, add the same `Platform` seam first, then
 `diff -r src/engine ../notagame/engine-module/src/main/cpp/engine`.
